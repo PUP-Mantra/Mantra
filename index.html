@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Mantra Login</title>
+  <title>Mantra</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500&display=swap" rel="stylesheet">
@@ -11,6 +11,7 @@
 </head>
 <body>
 
+  <!-- ===== Login scene ===== -->
   <div class="logo">
     <img src="login-logo/logo-1.png" alt="">
     <img src="login-logo/logo-2.png" alt="">
@@ -30,6 +31,56 @@
       <button type="submit" id="loginBtn">Login</button>
     </form>
   </main>
+
+  <!-- ===== Dashboard (hidden until login succeeds) ===== -->
+  <div id="dashboard" aria-hidden="true">
+    <header class="nav">
+      <img class="nav-logo" src="login-logo/logo-full.png" alt="mantra logo">
+      <span class="nav-brand">mantra</span>
+      <nav class="nav-links">
+        <a href="#home" data-view="home" class="active">Home</a>
+        <a href="#features" data-view="features">Features</a>
+        <a href="#about" data-view="about">About</a>
+      </nav>
+    </header>
+
+    <!-- optional illustration: put your image at images/hero.png -->
+    <img class="hero-art" src="images/hero.png" alt="" onerror="this.style.display='none'">
+
+    <img class="hero-logo" src="login-logo/logo-full.png" alt="">
+
+    <section class="panel">
+
+      <div class="view active" id="home">
+        <h2>Welcome to mantra</h2>
+        <p>This is your home page. Replace this text with your own welcome message.</p>
+      </div>
+
+      <div class="view" id="features">
+        <h2>Features</h2>
+        <div class="cards">
+          <article class="card">
+            <h3>Feature one</h3>
+            <p>A short description of your first feature goes here.</p>
+          </article>
+          <article class="card">
+            <h3>Feature two</h3>
+            <p>A short description of your second feature goes here.</p>
+          </article>
+          <article class="card">
+            <h3>Feature three</h3>
+            <p>A short description of your third feature goes here.</p>
+          </article>
+        </div>
+      </div>
+
+      <div class="view" id="about">
+        <h2>About</h2>
+        <p>Tell visitors who you are and what mantra is about. Replace this text with your own story.</p>
+      </div>
+
+    </section>
+  </div>
 
   <script src="login.js"></script>
 </body>

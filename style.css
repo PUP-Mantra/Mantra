@@ -26,13 +26,13 @@ body {
   grid-area: 1 / 1;
 }
 
-/* ---------- Logo ---------- */
+/* ---------- Logo (login background) ---------- */
 .logo {
   position: relative;
   width: min(1080px, 90vmin);
   aspect-ratio: 1 / 1;
   opacity: 0.5;
-  transform: scale(0.9);          /* logo size: change this number */
+  transform: scale(0.9);
 }
 
 .logo img {
@@ -123,3 +123,169 @@ button:disabled { opacity: 0.6; cursor: wait; }
 }
 #message:empty { display: none; }
 #message.success { color: #2e7d32; }
+
+/* =====================================================
+   Dashboard (sizes in vw so it scales like a 1920px design)
+   ===================================================== */
+#dashboard {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.8s ease;
+}
+#dashboard.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.nav {
+  position: relative;
+  z-index: 3;
+  height: 5.9vw;
+  background: #fbf4e8;
+}
+
+/* nav logo: where the pieces land */
+.nav-logo {
+  position: absolute;
+  left: 6.08vw;
+  top: -0.34vw;
+  width: 6.39vw;
+  height: 6.39vw;
+  z-index: 4;
+  opacity: 0;                       /* shown once the pieces have landed */
+  transition: opacity 0.25s ease;
+}
+.nav-logo.show { opacity: 1; }
+
+.nav-brand {
+  position: absolute;
+  left: 13vw;
+  top: 0;
+  height: 5.9vw;
+  display: flex;
+  align-items: center;
+  font-family: "The Seasons", serif;
+  font-size: 3vw;
+  letter-spacing: 0.1em;
+  color: #6b2a1a;
+}
+
+.nav-links {
+  position: absolute;
+  left: 34.5vw;
+  top: 0;
+  height: 100%;
+  display: flex;
+}
+.nav-links a {
+  display: flex;
+  align-items: center;
+  padding: 0 1.3vw;
+  font-size: 1.05vw;
+  color: #5a2a1c;
+  text-decoration: none;
+  cursor: pointer;
+  border-bottom: 0.2vw solid transparent;
+  box-sizing: border-box;
+  transition: color 0.2s, border-color 0.2s;
+}
+.nav-links a:hover { color: #e37354; }
+.nav-links a.active {
+  color: #e37354;
+  border-bottom-color: #e37354;
+}
+
+.hero-art {
+  position: absolute;
+  right: 0;
+  top: 5.9vw;
+  width: 54vw;
+  height: 21vw;
+  object-fit: cover;
+  object-position: top;
+  z-index: 1;
+}
+
+/* hero logo: fades in */
+.hero-logo {
+  position: absolute;
+  left: 66.82vw;
+  top: 5.81vw;
+  width: 10.54vw;
+  height: 10.54vw;
+  z-index: 2;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 1.3s ease, transform 1.3s ease;
+}
+.hero-logo.show {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ---------- Page content (Home / Features / About) ---------- */
+.panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 27vw;
+  bottom: 0;
+  z-index: 3;
+  box-sizing: border-box;
+  overflow-y: auto;
+  background: #fbf2e8;
+  border-radius: 4.7vw 4.7vw 0 0;
+  padding: 3vw 6vw;
+}
+
+.view { display: none; }
+.view.active {
+  display: block;
+  animation: viewIn 0.45s ease;
+}
+@keyframes viewIn {
+  from { opacity: 0; transform: translateY(1vw); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.view h2 {
+  margin: 0 0 1vw;
+  font-family: "The Seasons", serif;
+  font-weight: 400;
+  font-size: 3vw;
+  color: #6b2a1a;
+}
+.view p {
+  margin: 0;
+  max-width: 50vw;
+  font-size: 1.1vw;
+  line-height: 1.7;
+  color: #5a2a1c;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2vw;
+  margin-top: 1.5vw;
+}
+.card {
+  padding: 1.6vw;
+  background: #fff7ee;
+  border: 1px solid #ecd4c0;
+  border-radius: 1.4vw;
+}
+.card h3 {
+  margin: 0 0 0.6vw;
+  font-size: 1.3vw;
+  font-weight: 500;
+  color: #e37354;
+}
+.card p {
+  max-width: none;
+  font-size: 1vw;
+}
