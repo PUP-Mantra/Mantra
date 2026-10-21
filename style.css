@@ -126,6 +126,7 @@ button:disabled { opacity: 0.6; cursor: wait; }
 
 /* =====================================================
    Dashboard (sizes in vw so it scales like a 1920px design)
+   Stacking order: cloud (1) < people (2) < hero logo (3) < nav + panel (4)
    ===================================================== */
 #dashboard {
   position: fixed;
@@ -141,9 +142,39 @@ button:disabled { opacity: 0.6; cursor: wait; }
   pointer-events: auto;
 }
 
+/* hero picture: full 1920x1080 canvases, so they sit exactly like your design */
+.hero-cloud,
+.hero-people {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 56.25vw;                  /* 1080 / 1920 */
+  pointer-events: none;
+}
+.hero-cloud  { z-index: 1; }
+.hero-people { z-index: 2; }
+
+/* hero logo: fades in */
+.hero-logo {
+  position: absolute;
+  left: 66.82vw;
+  top: 5.81vw;
+  width: 10.54vw;
+  height: 10.54vw;
+  z-index: 3;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 1.3s ease, transform 1.3s ease;
+}
+.hero-logo.show {
+  opacity: 1;
+  transform: scale(1);
+}
+
 .nav {
   position: relative;
-  z-index: 3;
+  z-index: 4;
   height: 5.9vw;
   background: #fbf4e8;
 }
@@ -199,34 +230,6 @@ button:disabled { opacity: 0.6; cursor: wait; }
   border-bottom-color: #e37354;
 }
 
-.hero-art {
-  position: absolute;
-  right: 0;
-  top: 5.9vw;
-  width: 54vw;
-  height: 21vw;
-  object-fit: cover;
-  object-position: top;
-  z-index: 1;
-}
-
-/* hero logo: fades in */
-.hero-logo {
-  position: absolute;
-  left: 66.82vw;
-  top: 5.81vw;
-  width: 10.54vw;
-  height: 10.54vw;
-  z-index: 2;
-  opacity: 0;
-  transform: scale(0.85);
-  transition: opacity 1.3s ease, transform 1.3s ease;
-}
-.hero-logo.show {
-  opacity: 1;
-  transform: scale(1);
-}
-
 /* ---------- Page content (Home / Features / About) ---------- */
 .panel {
   position: absolute;
@@ -234,7 +237,7 @@ button:disabled { opacity: 0.6; cursor: wait; }
   right: 0;
   top: 27vw;
   bottom: 0;
-  z-index: 3;
+  z-index: 4;
   box-sizing: border-box;
   overflow-y: auto;
   background: #fbf2e8;

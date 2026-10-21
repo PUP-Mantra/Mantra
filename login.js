@@ -59,7 +59,7 @@ form.addEventListener("submit", async (e) => {
   }
 });
 
-/* ---------- Where each piece ends up in the lotus ----------
+/* ---------- Where each piece sits in the lotus ----------
    Order = logo-1 … logo-6 (diamond, M, right green, left green, left gold, right gold)
    A   = size of the piece in the lotus relative to the login layout
    rot = rotation in degrees
@@ -73,19 +73,54 @@ const PIECES = [
   { A: 0.8561, rot: 30,  ci: [0.6613, 0.3490], cj: [0.7370, 0.4901] },
 ];
 
-/* ---------- Transition (logo flight lasts 2.5 s in total) ---------- */
+/* ---------- Timing (ms) ---------- */
+const FADE_CARD_MS    = 1000;  // 1. login card slowly fades out
+const REARRANGE_START = 600;   // 2. pieces start moving into the lotus this long after the fade begins
+const REARRANGE_MS    = 1400;  //    time for each piece to slide into place
+const REARRANGE_GAP   = 60;    //    delay between one piece and the next
+const LOTUS_SIZE      = 0.9;   //    size of the lotus in the middle (1 = same box as the login logo)
+// 3. when the lotus is formed, it flies to the nav (2.5 s)
+
+/* ---------- helpers ---------- */
+// transform that puts one piece into its lotus spot, for a lotus box {left, top, width}
+function pieceTransform(p, start, box) {
+  const th = (p.rot * Math.PI) / 180;
+  const cos = Math.cos(th), sin = Math.sin(th);
+  const rx = cos * p.ci[0] - sin * p.ci[1];
+  const ry = sin * p.ci[0] + cos * p.ci[1];
+  return {
+    tx: box.left - start.left + box.width * (p.cj[0] - p.A * rx),
+    ty: box.top  - start.top  + box.width * (p.cj[1] - p.A * ry),
+    rot: p.rot,
+    m: (box.width * p.A) / start.width,
+  };
+}
+const tf = (t) => `translate(${t.tx}px, ${t.ty}px) rotate(${t.rot}deg) scale(${t.m})`;
+const IDENTITY = { tx: 0, ty: 0, rot: 0, m: 1 };
+
+/* ---------- The transition ---------- */
 function playTransition() {
-  const logo     = document.querySelector(".logo");
-  const card     = document.querySelector(".login-card");
-  const dash     = document.getElementById("dashboard");
-  const navLogo  = document.querySelector(".nav-logo");
-  const heroLogo = document.querySelector(".hero-logo");
-  const layers   = [...logo.querySelectorAll("img")];
+  const card = document.querySelector(".login-card");
+  const logo = document.querySelector(".logo");
+  const navLogo = document.querySelector(".nav-logo");
+
+  // 1. fade the login card slowly to show the logo behind it
+  card.style.transition = `opacity ${FADE_CARD_MS}ms ease, transform ${FADE_CARD_MS}ms ease`;
+  card.style.opacity = "0";
+  card.style.transform = "scale(0.96)";
+  card.style.pointerEvents = "none";
 
   const start = logo.getBoundingClientRect();     // big logo on screen now
   const end   = navLogo.getBoundingClientRect();  // box of the small lotus logo
 
-  // one "flyer" copy per layer, placed exactly over the big logo
+  setTimeout(() => rearrange(logo, start, end), REARRANGE_START);
+}
+
+/* ---------- 2. pieces slowly move into the lotus shape (position + rotation only) ---------- */
+function rearrange(logo, start, end) {
+  const layers = [...logo.querySelectorAll("img")];
+
+  // one "flyer" copy per layer, placed exactly over the big logo (still 50% opacity)
   const flyers = layers.map((img) => {
     const f = img.cloneNode();
     Object.assign(f.style, {
@@ -104,11 +139,34 @@ function playTransition() {
   });
   logo.style.visibility = "hidden";               // the flyers replace it
 
-  // login card fades away
-  card.style.transition = "opacity 0.5s ease, transform 0.5s ease";
-  card.style.opacity = "0";
-  card.style.transform = "scale(0.96)";
-  card.style.pointerEvents = "none";
+  // lotus in the middle of the screen, centered on the login logo
+  const W = start.width * LOTUS_SIZE;
+  const centerBox = {
+    left: start.left + (start.width - W) / 2,
+    top: start.top + (start.height - W) / 2,
+    width: W,
+  };
+  const inPlace = PIECES.map((p) => pieceTransform(p, start, centerBox));
+
+  const slide = flyers.map((f, i) =>
+    f.animate(
+      [
+        { transform: tf(IDENTITY), offset: 0 },
+        { transform: tf(inPlace[i]), offset: 1 },
+      ],
+      { duration: REARRANGE_MS, delay: i * REARRANGE_GAP, easing: "ease-in-out", fill: "both" }
+    )
+  );
+
+  // 3. once the lotus is formed, fly it to the nav
+  Promise.all(slide.map((a) => a.finished)).then(() => fly(flyers, start, end, inPlace));
+}
+
+/* ---------- 3. the lotus flies into the nav logo (2.5 s) ---------- */
+function fly(flyers, start, end, inPlace) {
+  const dash     = document.getElementById("dashboard");
+  const navLogo  = document.querySelector(".nav-logo");
+  const heroLogo = document.querySelector(".hero-logo");
 
   // dashboard appears behind the flying pieces
   setTimeout(() => {
@@ -120,34 +178,28 @@ function playTransition() {
   const delays = [0, 120, 240, 360, 480, 600];         // gap between pieces (ms)
   const duration = 1900;                               // last piece: 600 + 1900 = 2500 ms
 
-  const animations = flyers.map((f, i) => {
-    const p = PIECES[i];
-    const th = (p.rot * Math.PI) / 180;
-    const cos = Math.cos(th), sin = Math.sin(th);
-
-    // size and position that put this piece in its lotus spot
-    const m  = (end.width * p.A) / start.width;
-    const rx = cos * p.ci[0] - sin * p.ci[1];
-    const ry = sin * p.ci[0] + cos * p.ci[1];
-    const tx = end.left - start.left + end.width * (p.cj[0] - p.A * rx);
-    const ty = end.top  - start.top  + end.width * (p.cj[1] - p.A * ry);
+  const flights = flyers.map((f, i) => {
+    const a = inPlace[i];
+    const b = pieceTransform(PIECES[i], start, end);
+    const mid = {
+      tx: (a.tx + b.tx) / 2 + arcs[i],
+      ty: (a.ty + b.ty) / 2 - Math.abs(arcs[i]) * 0.6,
+      rot: PIECES[i].rot,
+      m: (a.m + b.m) / 2,
+    };
 
     return f.animate(
       [
-        { transform: "translate(0px, 0px) rotate(0deg) scale(1)", opacity: 0.5, offset: 0 },
-        {
-          transform: `translate(${tx * 0.5 + arcs[i]}px, ${ty * 0.5 - Math.abs(arcs[i]) * 0.6}px) rotate(${p.rot * 0.5}deg) scale(${(1 + m) / 2})`,
-          opacity: 0.75,
-          offset: 0.5,
-        },
-        { transform: `translate(${tx}px, ${ty}px) rotate(${p.rot}deg) scale(${m})`, opacity: 1, offset: 1 },
+        { transform: tf(a),   opacity: 0.5,  offset: 0 },
+        { transform: tf(mid), opacity: 0.75, offset: 0.5 },
+        { transform: tf(b),   opacity: 1,    offset: 1 },
       ],
       { duration, delay: delays[i], easing: "cubic-bezier(.45,.05,.25,1)", fill: "both" }
     );
   });
 
   // when all six have landed, fade in the real logo image and remove the flyers
-  Promise.all(animations.map((a) => a.finished)).then(() => {
+  Promise.all(flights.map((a) => a.finished)).then(() => {
     navLogo.classList.add("show");
     setTimeout(() => flyers.forEach((f) => f.remove()), 300);
   });

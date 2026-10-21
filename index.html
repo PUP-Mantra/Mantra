@@ -13,12 +13,12 @@
 
   <!-- ===== Login scene ===== -->
   <div class="logo">
-    <img src="login-logo/logo-1.png" alt="">
-    <img src="login-logo/logo-2.png" alt="">
-    <img src="login-logo/logo-3.png" alt="">
-    <img src="login-logo/logo-4.png" alt="">
-    <img src="login-logo/logo-5.png" alt="">
-    <img src="login-logo/logo-6.png" alt="">
+    <img src="assets/logo-1.png" alt="">
+    <img src="assets/logo-2.png" alt="">
+    <img src="assets/logo-3.png" alt="">
+    <img src="assets/logo-4.png" alt="">
+    <img src="assets/logo-5.png" alt="">
+    <img src="assets/logo-6.png" alt="">
   </div>
 
   <main class="login-card">
@@ -34,8 +34,16 @@
 
   <!-- ===== Dashboard (hidden until login succeeds) ===== -->
   <div id="dashboard" aria-hidden="true">
+
+    <!-- hero picture: two full-canvas (1920x1080) layers, cloud behind, people in front -->
+    <img class="hero-cloud"  src="assets/cloud.png"  alt="">
+    <img class="hero-people" src="assets/people.png" alt="">
+
+    <!-- logo that fades in on the hero -->
+    <img class="hero-logo" src="assets/logo-full.png" alt="">
+
     <header class="nav">
-      <img class="nav-logo" src="login-logo/logo-full.png" alt="mantra logo">
+      <img class="nav-logo" src="assets/logo-full.png" alt="mantra logo">
       <span class="nav-brand">mantra</span>
       <nav class="nav-links">
         <a href="#home" data-view="home" class="active">Home</a>
@@ -43,11 +51,6 @@
         <a href="#about" data-view="about">About</a>
       </nav>
     </header>
-
-    <!-- optional illustration: put your image at images/hero.png -->
-    <img class="hero-art" src="images/hero.png" alt="" onerror="this.style.display='none'">
-
-    <img class="hero-logo" src="login-logo/logo-full.png" alt="">
 
     <section class="panel">
 
