@@ -32,7 +32,7 @@ body {
   width: min(1080px, 90vmin);
   aspect-ratio: 1 / 1;
   opacity: 0.5;
-  transform: scale(3);
+  transform: scale(0.9);          /* logo size: change this number */
 }
 
 .logo img {
