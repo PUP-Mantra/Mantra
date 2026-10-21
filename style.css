@@ -1,0 +1,125 @@
+@font-face {
+  font-family: "The Seasons";
+  src: url("fonts/the-seasons.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  font-family: "Poppins", sans-serif;
+  background:
+    radial-gradient(ellipse at 10% 0%, #fde1c8 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 5%, #f5d3c3 0%, transparent 50%),
+    linear-gradient(to bottom, #fbeedd 0%, #fcf4e6 50%, #fdf5e8 100%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+.logo,
+.login-card {
+  grid-area: 1 / 1;
+}
+
+/* ---------- Logo ---------- */
+.logo {
+  position: relative;
+  width: min(1080px, 90vmin);
+  aspect-ratio: 1 / 1;
+  opacity: 0.5;
+  transform: scale(3);
+}
+
+.logo img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- Login card ---------- */
+.login-card {
+  position: relative;
+  z-index: 2;
+  width: 52vmin;
+  box-sizing: border-box;
+  padding: 3vmin 4.3vmin 4vmin;
+  background: #fcf1ed;
+  border: 1px solid #222;
+  border-radius: 2.3vmin;
+  text-align: center;
+}
+
+.brand {
+  margin: 0 0 3vmin;
+  font-family: "The Seasons", serif;
+  font-weight: 400;
+  font-size: 9vmin;
+  line-height: 1.1;
+  letter-spacing: 0.12em;
+  padding-left: 0.12em;
+  white-space: nowrap;
+  color: #6b2a1a;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.9vmin;
+}
+
+input,
+input::placeholder,
+button {
+  font-family: "Poppins", sans-serif;
+}
+
+input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 7.5vmin;
+  padding: 0 2vmin;
+  font-size: 3vmin;
+  font-weight: 500;
+  color: #000;
+  background: #ffdfc0;
+  border: 1px solid #333;
+  border-radius: 2.3vmin;
+  outline: none;
+  transition: box-shadow 0.2s;
+}
+
+input::placeholder { color: #000; opacity: 1; }
+input:focus { box-shadow: 0 0 0 3px rgba(227, 114, 84, 0.45); }
+
+button {
+  width: 70%;
+  height: 7.6vmin;
+  font-size: 3.3vmin;
+  font-weight: 400;
+  color: #fff;
+  background: #e37354;
+  border: 1px solid #222;
+  border-radius: 2.3vmin;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+button:hover    { background: #d4623f; }
+button:active   { transform: scale(0.98); }
+button:disabled { opacity: 0.6; cursor: wait; }
+
+#message {
+  margin: 0;
+  font-size: 1.8vmin;
+  color: #b3261e;
+}
+#message:empty { display: none; }
+#message.success { color: #2e7d32; }
