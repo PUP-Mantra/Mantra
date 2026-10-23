@@ -174,9 +174,11 @@ function fly(flyers, start, end, inPlace) {
     dash.setAttribute("aria-hidden", "false");
   }, 250);
 
-  const arcs   = [-120, 90, -200, 190, -100, 100];     // sideways bend of each flight (px)
-  const delays = [0, 120, 240, 360, 480, 600];         // gap between pieces (ms)
-  const duration = 1900;                               // last piece: 600 + 1900 = 2500 ms
+  //                 logo-1 logo-2 logo-3 logo-4 logo-5 logo-6
+  const arcs      = [ -120,    90,  -200,  -190,  -100,   100 ]; // sideways bend of each flight (px)
+  const delays    = [    0,   120,   600,     0,   100,   300 ]; // logo 6 starts at 0.3 s, logo 3 at 0.6 s
+  const durations = [ 1900,  1900,  1700,  1100,  1100,  1800 ]; // how long each piece flies (ms)
+  // logo 4 and 5 finish at about 1.1 s and 1.2 s; logo 3 and 6 finish at 2.4 s and 2.5 s
 
   const flights = flyers.map((f, i) => {
     const a = inPlace[i];
@@ -194,7 +196,7 @@ function fly(flyers, start, end, inPlace) {
         { transform: tf(mid), opacity: 0.75, offset: 0.5 },
         { transform: tf(b),   opacity: 1,    offset: 1 },
       ],
-      { duration, delay: delays[i], easing: "cubic-bezier(.45,.05,.25,1)", fill: "both" }
+      { duration: durations[i], delay: delays[i], easing: "cubic-bezier(.45,.05,.25,1)", fill: "both" }
     );
   });
 
