@@ -1,3 +1,10 @@
+/* The picture always fills the window (no side bars, no empty strip, no scrolling).
+   Wide window: it fills the width and the very bottom is cropped a little.
+   Tall window: it fills the height and the extreme sides are cropped.
+   Top bar height: change --nav-n (a number, in rem). */
+:root { --nav-n: 3.8; --nav: calc(var(--nav-n) * 1rem); }
+html { font-size: max(1vw, calc(100vh / (var(--nav-n) + 50.25))); }
+
 @font-face {
   font-family: "The Seasons";
   src: url("fonts/the-seasons.otf") format("opentype");
@@ -77,7 +84,7 @@ form {
 
 input,
 input::placeholder,
-button {
+#loginBtn {
   font-family: "Poppins", sans-serif;
 }
 
@@ -99,7 +106,7 @@ input {
 input::placeholder { color: #000; opacity: 1; }
 input:focus { box-shadow: 0 0 0 3px rgba(227, 114, 84, 0.45); }
 
-button {
+#loginBtn {
   width: 70%;
   height: 7.6vmin;
   font-size: 3.3vmin;
@@ -112,9 +119,9 @@ button {
   transition: background 0.2s, transform 0.1s;
 }
 
-button:hover    { background: #d4623f; }
-button:active   { transform: scale(0.98); }
-button:disabled { opacity: 0.6; cursor: wait; }
+#loginBtn:hover    { background: #d4623f; }
+#loginBtn:active   { transform: scale(0.98); }
+#loginBtn:disabled { opacity: 0.6; cursor: wait; }
 
 #message {
   margin: 0;
@@ -125,14 +132,14 @@ button:disabled { opacity: 0.6; cursor: wait; }
 #message.success { color: #2e7d32; }
 
 /* =====================================================
-   Dashboard (sizes in vw so it scales like a 1920px design)
-   Stacking order: cloud (1) < people (2) < hero logo (3) < nav + panel (4)
+   Dashboard (designed on a 1920x1080 canvas, sized in rem)
    ===================================================== */
 #dashboard {
   position: fixed;
   inset: 0;
   z-index: 5;
-  overflow: hidden;
+  overflow: hidden;                 /* the page never scrolls */
+  background: #fbf2e8;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.8s ease;
@@ -142,50 +149,70 @@ button:disabled { opacity: 0.6; cursor: wait; }
   pointer-events: auto;
 }
 
-/* hero picture: full 1920x1080 canvases, so they sit exactly like your design */
-.hero-cloud,
-.hero-people {
+/* The top 115px of background.png is blank on purpose (room for the nav bar).
+   The picture is moved up so its hero starts exactly under the nav bar. */
+.stage {
+  position: absolute;
+  left: 50%;
+  margin-left: -50rem;              /* centers the 100rem-wide picture */
+  top: calc(var(--nav) - 6rem);     /* 6rem = the blank band at the top of the picture */
+  width: 100rem;
+  height: 56.25rem;                 /* 1080 / 1920 */
+  z-index: 1;
+}
+
+.scene {
+  position: absolute;
+  inset: 0;
+}
+.bg,
+.people {
   position: absolute;
   top: 0;
   left: 0;
-  width: 100vw;
-  height: 56.25vw;                  /* 1080 / 1920 */
+  width: 100%;
+  height: 100%;
   pointer-events: none;
-}
-.hero-cloud  { z-index: 1; }
-.hero-people { z-index: 2; }
-
-/* hero logo: fades in */
-.hero-logo {
-  position: absolute;
-  left: 66.82vw;
-  top: 5.81vw;
-  width: 10.54vw;
-  height: 10.54vw;
-  z-index: 3;
-  opacity: 0;
-  transform: scale(0.85);
-  transition: opacity 1.3s ease, transform 1.3s ease;
-}
-.hero-logo.show {
-  opacity: 1;
-  transform: scale(1);
+  user-select: none;
 }
 
+/* people.png position: change these three numbers to nudge it
+   --people-scale  bigger / smaller
+   --people-x      move right (+) / left (-)
+   --people-y      move down (+) / up (-)                          */
+.people {
+  --people-scale: 1.3;
+  --people-x: 0rem;
+  --people-y: 0rem;
+  transform-origin: 61.1% -4%;
+  transform: translate(var(--people-x), var(--people-y)) scale(var(--people-scale));
+}
+
+/* ---------- Nav bar ---------- */
 .nav {
-  position: relative;
-  z-index: 4;
-  height: 5.9vw;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 8;
+  height: var(--nav);
   background: #fbf4e8;
+  box-shadow: 0 0.1rem 0.6rem rgba(107, 42, 26, 0.06);
+}
+.nav-inner {
+  position: relative;
+  width: min(100rem, 100vw);        /* never wider than the window, so the bar is never cropped */
+  height: 100%;
+  margin: 0 auto;
 }
 
 /* nav logo: where the pieces land */
 .nav-logo {
   position: absolute;
-  left: 6.08vw;
-  top: -0.34vw;
-  width: 6.39vw;
-  height: 6.39vw;
+  left: 6.45rem;
+  top: calc((var(--nav) - 4.3rem) / 2);
+  width: 4.3rem;
+  height: 4.3rem;
   z-index: 4;
   opacity: 0;                       /* shown once the pieces have landed */
   transition: opacity 0.25s ease;
@@ -194,101 +221,395 @@ button:disabled { opacity: 0.6; cursor: wait; }
 
 .nav-brand {
   position: absolute;
-  left: 13vw;
+  left: 11.4rem;
   top: 0;
-  height: 5.9vw;
+  height: var(--nav);
   display: flex;
   align-items: center;
   font-family: "The Seasons", serif;
-  font-size: 3vw;
+  font-size: 2.2rem;
   letter-spacing: 0.1em;
   color: #6b2a1a;
 }
 
+/* links */
 .nav-links {
   position: absolute;
-  left: 34.5vw;
+  left: 33rem;
   top: 0;
-  height: 100%;
+  height: var(--nav);
   display: flex;
 }
-.nav-links a {
+.nav-link {
+  position: relative;
   display: flex;
   align-items: center;
-  padding: 0 1.3vw;
-  font-size: 1.05vw;
+  height: var(--nav);
+  padding: 0 1.3rem;
+  font-size: 0.9rem;
   color: #5a2a1c;
   text-decoration: none;
-  cursor: pointer;
-  border-bottom: 0.2vw solid transparent;
-  box-sizing: border-box;
-  transition: color 0.2s, border-color 0.2s;
+  transition: color 0.2s;
 }
-.nav-links a:hover { color: #e37354; }
-.nav-links a.active {
-  color: #e37354;
-  border-bottom-color: #e37354;
+.nav-link::after {                  /* underline of the active page */
+  content: "";
+  position: absolute;
+  left: 1.1rem;
+  right: 1.1rem;
+  bottom: 0.1rem;
+  height: 0.15rem;
+  border-radius: 1rem;
+  background: #e37354;
+  transform: scaleX(0);
+  transition: transform 0.25s ease;
+}
+.nav-link:hover  { color: #e37354; }
+.nav-link.active { color: #e37354; }
+.nav-link.active::after { transform: scaleX(1); }
+
+/* Services dropdown (appears on hover) */
+.has-menu { position: relative; }
+
+.menu {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  min-width: 11rem;
+  padding: 0.5rem;
+  background: #fffaf4;
+  border: 1px solid #efd9c6;
+  border-radius: 0.9rem;
+  box-shadow: 0 0.8rem 2rem rgba(107, 42, 26, 0.15);
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, -0.4rem);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+  z-index: 20;
+}
+.has-menu:hover .menu,
+.has-menu:focus-within .menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+.has-menu.lock .menu {              /* hidden right after a click, until the mouse leaves */
+  opacity: 0;
+  visibility: hidden;
 }
 
-/* ---------- Page content (Home / Features / About) ---------- */
-.panel {
+.menu-item {
+  display: block;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.95rem;
+  color: #5a2a1c;
+  text-decoration: none;
+  border-radius: 0.6rem;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.menu-item .m {
+  font-family: "The Seasons", serif;
+  font-size: 1.15rem;
+  letter-spacing: 0.06em;
+  color: #6b2a1a;
+}
+.menu-item b { font-weight: 600; }
+.menu-item:hover {
+  background: #fde8d8;
+  color: #e37354;
+}
+
+/* ---------- Bell + profile ---------- */
+.nav-right {
+  position: absolute;
+  right: 4.9rem;
+  top: 0;
+  height: var(--nav);
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+.dd { position: relative; }
+
+.bell {
+  position: relative;
+  display: flex;
+  padding: 0.3rem;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.bell svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  fill: none;
+  stroke: #6b2a1a;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.bell .dot {
+  position: absolute;
+  top: 0.15rem;
+  right: 0.25rem;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: #e5483b;
+  display: none;
+}
+.bell.unread .dot { display: block; }
+
+.profile {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-family: "Poppins", sans-serif;
+  color: #5a2a1c;
+}
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: #f6c2a6;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #d9552f;
+}
+.who {
+  display: flex;
+  flex-direction: column;
+  min-width: 6.8rem;
+  text-align: left;
+  font-size: 0.85rem;
+  line-height: 1.15rem;
+}
+.who strong {
+  font-weight: 700;
+  color: #4a1f12;
+}
+.chev {
+  width: 0.9rem;
+  height: 0.9rem;
+  margin-left: 2.2rem;
+  fill: none;
+  stroke: #3a1a10;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* dropdown panels (notifications, profile) */
+.dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  min-width: 14rem;
+  padding: 0.7rem;
+  background: #fffaf4;
+  border: 1px solid #efd9c6;
+  border-radius: 0.9rem;
+  box-shadow: 0 0.8rem 2rem rgba(107, 42, 26, 0.15);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-0.4rem);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+  z-index: 20;
+}
+.dd.open .dropdown {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+.notif { right: -2rem; min-width: 18rem; }
+
+.notif-head {
+  padding: 0.2rem 0.4rem 0.6rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #6b2a1a;
+  border-bottom: 1px solid #f0ddcc;
+}
+#notifList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 16rem;
+  overflow-y: auto;
+}
+#notifList li {
+  padding: 0.6rem 0.4rem;
+  border-bottom: 1px solid #f6e8da;
+}
+#notifList li:last-child { border-bottom: 0; }
+#notifList .n-title {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4a1f12;
+}
+#notifList .n-text {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: #5a2a1c;
+}
+#notifList .n-time {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.65rem;
+  color: #a98a7a;
+}
+.notif-empty {
+  margin: 0;
+  padding: 0.9rem 0.4rem;
+  font-size: 0.85rem;
+  color: #a98a7a;
+}
+.notif-empty.hidden { display: none; }
+
+.profile-menu { min-width: 8rem; }
+.menu-btn {
+  display: block;
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  background: none;
+  border: 0;
+  border-radius: 0.6rem;
+  text-align: left;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.9rem;
+  color: #5a2a1c;
+  cursor: pointer;
+}
+.menu-btn:hover {
+  background: #fde8d8;
+  color: #e37354;
+}
+
+/* ---------- Home content ---------- */
+.home {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.accent { color: #e37354; }
+
+.hero-text {
+  position: absolute;
+  left: 7.55rem;
+  top: 11.3rem;
+}
+.hero-text h1 {
+  margin: 0;
+  font-size: 3.34rem;
+  font-weight: 700;
+  line-height: 4.95rem;
+  color: #5a1f10;
+}
+.hero-text p {
+  margin: 0.1rem 0 0;
+  font-size: 1.17rem;
+  line-height: 1.6rem;
+  color: #4a1f12;
+}
+
+/* ---------- Other pages (Services, mantra Sense, mantra Nurture, About) ---------- */
+.page {
+  display: none;
   position: absolute;
   left: 0;
   right: 0;
-  top: 27vw;
+  top: var(--nav);
   bottom: 0;
-  z-index: 4;
+  z-index: 6;
   box-sizing: border-box;
   overflow-y: auto;
-  background: #fbf2e8;
-  border-radius: 4.7vw 4.7vw 0 0;
-  padding: 3vw 6vw;
+  padding: 4rem max(8rem, calc((100% - 100rem) / 2 + 8rem));
+  background: linear-gradient(to bottom, #fcf4e8, #fbeedd);
 }
-
-.view { display: none; }
-.view.active {
+.page.active {
   display: block;
-  animation: viewIn 0.45s ease;
+  animation: pageIn 0.45s ease;
 }
-@keyframes viewIn {
-  from { opacity: 0; transform: translateY(1vw); }
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(1rem); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.view h2 {
-  margin: 0 0 1vw;
+.page h2 {
+  margin: 0 0 1rem;
   font-family: "The Seasons", serif;
   font-weight: 400;
-  font-size: 3vw;
+  font-size: 3.2rem;
   color: #6b2a1a;
 }
-.view p {
+.page .m {
+  font-family: "The Seasons", serif;
+  letter-spacing: 0.06em;
+}
+.lead {
+  max-width: 50rem;
   margin: 0;
-  max-width: 50vw;
-  font-size: 1.1vw;
+  font-size: 1.15rem;
   line-height: 1.7;
   color: #5a2a1c;
 }
 
 .cards {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2vw;
-  margin-top: 1.5vw;
+  grid-template-columns: repeat(2, 24rem);
+  gap: 2rem;
+  margin-top: 2rem;
 }
 .card {
-  padding: 1.6vw;
+  display: block;
+  padding: 1.8rem;
   background: #fff7ee;
   border: 1px solid #ecd4c0;
-  border-radius: 1.4vw;
+  border-radius: 1.4rem;
+  text-decoration: none;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.card:hover {
+  transform: translateY(-0.3rem);
+  box-shadow: 0 0.8rem 1.8rem rgba(107, 42, 26, 0.12);
 }
 .card h3 {
-  margin: 0 0 0.6vw;
-  font-size: 1.3vw;
+  margin: 0 0 0.6rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #6b2a1a;
+}
+.card h3 .m { font-size: 1.7rem; font-weight: 400; }
+.card p {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #5a2a1c;
+}
+.card .more {
+  display: inline-block;
+  margin-top: 1rem;
+  font-size: 0.95rem;
   font-weight: 500;
   color: #e37354;
 }
-.card p {
-  max-width: none;
-  font-size: 1vw;
+
+.back {
+  display: inline-block;
+  margin-top: 2rem;
+  font-size: 1rem;
+  color: #e37354;
+  text-decoration: none;
 }
+.back:hover { text-decoration: underline; }

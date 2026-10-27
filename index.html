@@ -6,7 +6,7 @@
   <title>Mantra</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -35,54 +35,118 @@
   <!-- ===== Dashboard (hidden until login succeeds) ===== -->
   <div id="dashboard" aria-hidden="true">
 
-    <!-- hero picture: two full-canvas (1920x1080) layers, cloud behind, people in front -->
-    <img class="hero-cloud"  src="assets/cloud.png"  alt="">
-    <img class="hero-people" src="assets/people.png" alt="">
+    <div class="stage">
 
-    <!-- logo that fades in on the hero -->
-    <img class="hero-logo" src="assets/logo-full.png" alt="">
+      <!-- colour bands that continue the picture's edges on wide windows -->
+      <div class="side side-left"></div>
+      <div class="side side-right"></div>
 
-    <header class="nav">
-      <img class="nav-logo" src="assets/logo-full.png" alt="mantra logo">
-      <span class="nav-brand">mantra</span>
-      <nav class="nav-links">
-        <a href="#home" data-view="home" class="active">Home</a>
-        <a href="#features" data-view="features">Features</a>
-        <a href="#about" data-view="about">About</a>
-      </nav>
-    </header>
-
-    <section class="panel">
-
-      <div class="view active" id="home">
-        <h2>Welcome to mantra</h2>
-        <p>This is your home page. Replace this text with your own welcome message.</p>
+      <!-- full 1920x1080 layers: background behind, people in front -->
+      <div class="scene">
+        <img class="bg" src="assets/background.png" alt="">
+        <img class="people" src="assets/people.png" alt="">
       </div>
 
-      <div class="view" id="features">
-        <h2>Features</h2>
-        <div class="cards">
-          <article class="card">
-            <h3>Feature one</h3>
-            <p>A short description of your first feature goes here.</p>
-          </article>
-          <article class="card">
-            <h3>Feature two</h3>
-            <p>A short description of your second feature goes here.</p>
-          </article>
-          <article class="card">
-            <h3>Feature three</h3>
-            <p>A short description of your third feature goes here.</p>
-          </article>
+      <!-- ================= HOME ================= -->
+      <section class="home" id="home">
+        <div class="hero-text">
+          <h1>Welcome to Mantra,<br><span class="accent"><span class="user-name">Name</span>!</span></h1>
+          <p>
+            Your well-being matters. Mantra is here to support you<br>
+            and your team with a healthier, happier, and more<br>
+            balanced work life.
+          </p>
+        </div>
+      </section>
+    </div>
+
+    <!-- ================= OTHER PAGES ================= -->
+    <section class="page" id="services">
+      <h2>Services</h2>
+      <p class="lead">Choose a service to learn more.</p>
+      <div class="cards">
+        <a class="card" href="#sense" data-view="sense">
+          <h3><span class="m">mantra</span> Sense</h3>
+          <p>A short description of mantra Sense goes here.</p>
+          <span class="more">Open &rarr;</span>
+        </a>
+        <a class="card" href="#nurture" data-view="nurture">
+          <h3><span class="m">mantra</span> Nurture</h3>
+          <p>A short description of mantra Nurture goes here.</p>
+          <span class="more">Open &rarr;</span>
+        </a>
+      </div>
+    </section>
+
+    <section class="page" id="sense">
+      <h2><span class="m">mantra</span> Sense</h2>
+      <p class="lead">Replace this text with the description of mantra Sense.</p>
+      <a class="back" href="#services" data-view="services">&larr; Back to Services</a>
+    </section>
+
+    <section class="page" id="nurture">
+      <h2><span class="m">mantra</span> Nurture</h2>
+      <p class="lead">Replace this text with the description of mantra Nurture.</p>
+      <a class="back" href="#services" data-view="services">&larr; Back to Services</a>
+    </section>
+
+    <section class="page" id="about">
+      <h2>About</h2>
+      <p class="lead">Tell visitors who you are and what mantra is about. Replace this text with your own story.</p>
+    </section>
+
+    <!-- ================= NAV BAR ================= -->
+    <header class="nav">
+      <div class="nav-inner">
+        <img class="nav-logo" src="assets/logo-full.png" alt="mantra logo">
+        <span class="nav-brand">mantra</span>
+
+        <nav class="nav-links">
+          <a class="nav-link active" href="#home" data-view="home">Home</a>
+
+          <div class="has-menu">
+            <a class="nav-link" href="#services" data-view="services">Services</a>
+            <div class="menu">
+              <a class="menu-item" href="#sense" data-view="sense"><span class="m">mantra</span> <b>Sense</b></a>
+              <a class="menu-item" href="#nurture" data-view="nurture"><span class="m">mantra</span> <b>Nurture</b></a>
+            </div>
+          </div>
+
+          <a class="nav-link" href="#about" data-view="about">About</a>
+        </nav>
+
+        <div class="nav-right">
+          <!-- notifications -->
+          <div class="dd bell-wrap">
+            <button class="bell" id="bellBtn" type="button" aria-label="Notifications" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              <span class="dot"></span>
+            </button>
+            <div class="dropdown notif">
+              <div class="notif-head">Notifications</div>
+              <ul id="notifList"></ul>
+              <p class="notif-empty" id="notifEmpty">No notifications yet.</p>
+            </div>
+          </div>
+
+          <!-- profile -->
+          <div class="dd profile-wrap">
+            <button class="profile" id="profileBtn" type="button" aria-expanded="false">
+              <span class="avatar" id="avatar">M</span>
+              <span class="who">
+                <span>Welcome back,</span>
+                <strong><span class="user-name">Name</span>!</strong>
+              </span>
+              <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="dropdown profile-menu">
+              <button class="menu-btn" id="logoutBtn" type="button">Log out</button>
+            </div>
+          </div>
         </div>
       </div>
+    </header>
 
-      <div class="view" id="about">
-        <h2>About</h2>
-        <p>Tell visitors who you are and what mantra is about. Replace this text with your own story.</p>
-      </div>
-
-    </section>
   </div>
 
   <script src="login.js"></script>
