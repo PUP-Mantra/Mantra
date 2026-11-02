@@ -31,11 +31,11 @@ function rowsToAccounts(rows) {
       password: (r[2] || "").trim(),
     }))
     // skip empty rows, the "Accounts" title row and the Name/Username/Password header row
-    .filter((a) => a.username && a.password && a.username.toLowerCase() !== "username");
+    .filter((a) => a.username && a.username.toLowerCase() !== "username");
 }
 
-// returns the list of accounts, or null if the sheet could not be read
-function fetchAccounts() {
+// 1) JSON method (works everywhere, but Google drops cells that don't match the column's main type)
+function fetchJsonAccounts() {
   return new Promise((resolve) => {
     const callbackName = "sheetCallback" + Date.now();
     const script = document.createElement("script");
@@ -59,7 +59,12 @@ function fetchAccounts() {
           throw new Error("Google answered: " + JSON.stringify(data && data.errors));
         }
         const rows = data.table.rows.map((r) =>
-          (r.c || []).map((cell) => (cell && cell.v !== null && cell.v !== undefined ? String(cell.v) : ""))
+          (r.c || []).map((cell) => {
+            if (!cell) return "";
+            // prefer the text exactly as shown in the sheet, then the raw value
+            if (cell.f !== null && cell.f !== undefined) return String(cell.f);
+            return cell.v !== null && cell.v !== undefined ? String(cell.v) : "";
+          })
         );
         finish(rowsToAccounts(rows));
       } catch (err) {
@@ -79,6 +84,51 @@ function fetchAccounts() {
       `?tqx=out:json;responseHandler:${callbackName}&headers=0&_=${Date.now()}`;
     document.head.appendChild(script);
   });
+}
+
+// 2) CSV method: every cell comes back as text, so numbers and letters can be mixed freely
+function parseCsv(text) {
+  const rows = [];
+  let row = [], cell = "", quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quoted) {
+      if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (c === '"') quoted = false;
+      else cell += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(cell); rows.push(row); row = []; cell = "";
+    } else cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+
+async function fetchCsvAccounts() {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 6000);
+    const res = await fetch(
+      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=0&_=${Date.now()}`,
+      { signal: ctrl.signal, cache: "no-store" }
+    );
+    clearTimeout(timer);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return rowsToAccounts(parseCsv(await res.text()));
+  } catch (err) {
+    console.warn("Account sheet (CSV) could not be read:", err.message);
+    return null;
+  }
+}
+
+// returns the list of accounts (from both methods combined), or null if the sheet could not be read at all
+async function fetchAccounts() {
+  const [a, b] = await Promise.all([fetchJsonAccounts(), fetchCsvAccounts()]);
+  if (!a && !b) return null;
+  return [...(a || []), ...(b || [])];
 }
 
 /* ---------- Login ---------- */
@@ -112,6 +162,9 @@ form.addEventListener("submit", async (e) => {
   const account = accounts.find(
     (a) => a.username.toLowerCase() === username.toLowerCase() && a.password === password
   );
+
+  // readable-sheet diagnostics (open the browser console to see them)
+  console.table(accounts.map((a) => ({ username: a.username, "password read": a.password ? "yes (" + a.password.length + " chars)" : "NO - empty" })));
 
   if (account) {
     busy = true;
