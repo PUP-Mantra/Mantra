@@ -14,7 +14,7 @@ function show(text, ok = false) {
    column A = name, B = username, C = password
    Works from a local file and from GitHub Pages.
    ===================================================== */
-const SHEET_ID = "1i3XUVKENu_1zIk4eJCk3T2K9Y8BAdTyTJwvmey2SlBs";
+const SHEET_ID = "1JcPBGGQcAQnEkOk2RVHYHjOl6rvFUYopazLrCGYMR5A";
 
 // false = if the sheet can't be read, login fails with a message (recommended)
 // true  = if the sheet can't be read, use the ACCOUNTS list below instead
@@ -273,10 +273,10 @@ function playTransition() {
 
 /* ---------- 2. pieces slowly move into the lotus shape ---------- */
 function rearrange(logo, start, end) {
-  const layers = [...logo.querySelectorAll("img")];
+  const layers = [...logo.querySelectorAll("svg")];
 
   const flyers = layers.map((img) => {
-    const f = img.cloneNode();
+    const f = img.cloneNode(true);
     Object.assign(f.style, {
       position: "fixed",
       left: start.left + "px",

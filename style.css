@@ -42,7 +42,7 @@ body {
   transform: scale(0.9);
 }
 
-.logo img {
+.logo svg {
   position: absolute;
   top: 0;
   left: 0;
