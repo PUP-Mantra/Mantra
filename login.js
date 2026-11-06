@@ -3,6 +3,7 @@ const message = document.getElementById("message");
 const button = document.getElementById("loginBtn");
 
 let busy = false;
+let currentUser = null;
 
 function show(text, ok = false) {
   message.textContent = text;
@@ -23,12 +24,19 @@ const ACCOUNTS = [
   { name: "Admin", username: "Admin", password: "1234" },
 ];
 
+/* =====================================================
+   ICONS: paste your Apps Script web-app URL here (see mantra-backend.gs)
+   ===================================================== */
+const ICON_API = "https://script.google.com/macros/s/AKfycbw6UEjNxJF_GV1MGfmw30e_7nY-r2yJpLsn4fvwd__FitfOo7w-BgVz-m7jB6s3uWkTpg/exec";
+
 function rowsToAccounts(rows) {
   return rows
     .map((r) => ({
       name: (r[0] || "").trim(),
       username: (r[1] || "").trim(),
       password: (r[2] || "").trim(),
+      role: (r[3] || "").trim(),              // column D: Admin / HR / Employee
+      icon: (r[4] || "").trim(),              // column E: the icon they picked (Drive file id), empty = default
     }))
     // skip empty rows, the "Accounts" title row and the Name/Username/Password header row
     .filter((a) => a.username && a.username.toLowerCase() !== "username");
@@ -168,7 +176,16 @@ form.addEventListener("submit", async (e) => {
 
   if (account) {
     busy = true;
+    currentUser = {
+      username: account.username,
+      password: account.password,
+      icon: account.icon || "",
+      role: normalizeRole(account.role),
+      name: account.name || account.username,
+    };
     setUser(account.name || account.username);
+    applyIcon(currentUser.icon);
+    setupRole();
     show("Login successful!", true);
     setTimeout(playTransition, 300);
   } else {
@@ -415,26 +432,31 @@ function fly(flyers, start, end, inPlace) {
    ===================================================== */
 const pages = document.querySelectorAll(".page");
 const navLinks = document.querySelectorAll(".nav-link");
-const parentOf = { sense: "services", nurture: "services" };   // which nav link stays highlighted
+const parentOf = { sense: "services", nurture: "services", checkin: "services" };   // which nav link stays highlighted
 
 function showView(name) {
+  // employees fill in the Workday Check-In before they get into Mantra Sense
+  if (name === "sense" && currentUser && currentUser.role === "employee") {
+    if (!checkinDone) name = "checkin";
+    else recheckCheckin();                       // data may have been reset since they answered
+  }
+  if (name === "admin" && !(currentUser && currentUser.role === "admin")) name = "home";
   const target = document.getElementById(name);
   if (!target) return;
 
-  // the page being left fades out (so going back to Home is animated too)
-  pages.forEach((p) => {
-    // only fade the old page out when we're going back to Home; otherwise the new page just covers it
-    if (p !== target && p.classList.contains("active") && !target.classList.contains("page")) {
-      p.classList.remove("active");
-      p.classList.add("leaving");
-      setTimeout(() => p.classList.remove("leaving"), 350);
-    }
-  });
-  pages.forEach((p) => { if (p === target) p.classList.remove("leaving"); });
+  const wasHome = !document.querySelector(".page.active");
   pages.forEach((p) => p.classList.toggle("active", p === target));   // "home" = no page on top
   const top = parentOf[name] || name;
   navLinks.forEach((a) => a.classList.toggle("active", a.dataset.view === top));
   if (target.classList.contains("page")) target.scrollTop = 0;
+  else if (!wasHome) {
+    // Home comes back with the same fade/slide the other pages use
+    const st = document.querySelector(".stage");
+    st.classList.remove("home-enter");
+    void st.offsetWidth;                       // restart the animation
+    st.classList.add("home-enter");
+    setTimeout(() => st.classList.remove("home-enter"), 600);
+  }
   history.replaceState(null, "", "#" + name);
   closeDropdowns();
 }
@@ -453,3 +475,432 @@ document.querySelectorAll("[data-view]").forEach((a) => {
     }
   });
 });
+
+/* =====================================================
+   PROFILE ICON: pick from the PNGs in the Drive folder, saved to the user's row in the sheet
+   ===================================================== */
+const avatarEl = document.getElementById("avatar");
+const iconUrl = (id) => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w256`;
+
+function applyIcon(id) {
+  const letter = (avatarEl.dataset.letter || avatarEl.textContent || "M").charAt(0);
+  avatarEl.dataset.letter = letter;
+  avatarEl.textContent = "";
+  avatarEl.classList.toggle("has-icon", !!id);
+  if (id) {
+    const img = new Image();
+    img.alt = "";
+    img.src = iconUrl(id);
+    img.onerror = () => { avatarEl.classList.remove("has-icon"); avatarEl.textContent = letter; };   // broken link -> default
+    avatarEl.appendChild(img);
+  } else {
+    avatarEl.textContent = letter;
+  }
+}
+
+const iconModal  = document.getElementById("iconModal");
+const iconGrid   = document.getElementById("iconGrid");
+const iconNote   = document.getElementById("iconNote");
+const iconSave   = document.getElementById("iconSave");
+let iconList = null;          // loaded once from the folder
+let pickedIcon = "";
+
+function setIconNote(text, bad) {
+  iconNote.textContent = text || "";
+  iconNote.classList.toggle("bad", !!bad);
+}
+
+function renderIconGrid() {
+  iconGrid.textContent = "";
+  const tiles = [{ id: "", name: "Default" }, ...(iconList || [])];
+  tiles.forEach((t) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "icon-tile";
+    b.setAttribute("aria-label", t.name);
+    b.setAttribute("aria-pressed", String(t.id === pickedIcon));
+    b.title = t.name.replace(/\.[^.]+$/, "");
+    if (t.id) {
+      const img = new Image();
+      img.alt = "";
+      img.loading = "lazy";
+      img.src = iconUrl(t.id);
+      b.appendChild(img);
+    } else {
+      b.classList.add("default");
+      b.textContent = avatarEl.dataset.letter || "M";
+    }
+    b.addEventListener("click", () => {
+      pickedIcon = t.id;
+      iconGrid.querySelectorAll(".icon-tile").forEach((x) => x.setAttribute("aria-pressed", "false"));
+      b.setAttribute("aria-pressed", "true");
+      setIconNote("");
+    });
+    iconGrid.appendChild(b);
+  });
+}
+
+async function openIconPicker() {
+  if (!currentUser) return;
+  closeDropdowns();
+  pickedIcon = currentUser.icon || "";
+  iconSave.disabled = true;
+  iconModal.hidden = false;
+  iconGrid.textContent = "";
+
+  if (!ICON_API) {
+    setIconNote("Icons aren't connected yet. Paste your Apps Script URL into ICON_API in login.js.", true);
+    return;
+  }
+  if (!iconList) {
+    setIconNote("Loading icons…");
+    try {
+      const res = await fetch(ICON_API + (ICON_API.includes("?") ? "&" : "?") + "action=icons", { cache: "no-store" });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "failed");
+      iconList = data.icons;
+    } catch (err) {
+      console.warn("Icon list could not be loaded:", err);
+      setIconNote("Couldn't load the icons. Please try again in a moment.", true);
+      return;
+    }
+  }
+  setIconNote(iconList.length ? "" : "No icons were found in the folder.", !iconList.length);
+  renderIconGrid();
+  iconSave.disabled = false;
+}
+
+function closeIconPicker() { iconModal.hidden = true; }
+
+async function saveIcon() {
+  if (pickedIcon === (currentUser.icon || "")) { closeIconPicker(); return; }
+  iconSave.disabled = true;
+  setIconNote("Saving…");
+  try {
+    await api("icon", { icon: pickedIcon });
+    currentUser.icon = pickedIcon;
+    applyIcon(pickedIcon);
+    closeIconPicker();
+    addNotification({ title: "Icon updated", text: "Your new icon has been saved to your account." });
+  } catch (err) {
+    console.warn("Icon could not be saved:", err);
+    setIconNote("Couldn't save your icon. Please try again.", true);
+    iconSave.disabled = false;
+  }
+}
+
+document.getElementById("changeIconBtn").addEventListener("click", openIconPicker);
+document.getElementById("iconCancel").addEventListener("click", closeIconPicker);
+iconSave.addEventListener("click", saveIcon);
+iconModal.addEventListener("click", (e) => { if (e.target === iconModal) closeIconPicker(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !iconModal.hidden) closeIconPicker(); });
+
+
+/* =====================================================
+   ROLES, CHECK-IN, TEAM SIDE BAR, ADMIN
+   Account roles come from column D of the accounts sheet: Admin / HR / Employee (blank = Employee)
+   ===================================================== */
+function normalizeRole(text) {
+  const t = String(text || "").trim().toLowerCase();
+  if (t.startsWith("admin")) return "admin";
+  if (t === "hr") return "hr";
+  return "employee";
+}
+const isStaff = () => currentUser && (currentUser.role === "admin" || currentUser.role === "hr");
+
+// one call to the Apps Script backend (always sends the user's login so the backend can check it)
+async function api(action, payload = {}) {
+  if (!ICON_API) throw new Error("not-connected");
+  const res = await fetch(ICON_API, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },       // plain text avoids a CORS preflight
+    body: JSON.stringify({ action, username: currentUser.username, password: currentUser.password, ...payload }),
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || "failed");
+  // the newer actions need the newer script; an old deployment would say "ok" without saving anything
+  if (action !== "icon" && data.v !== BACKEND_VERSION) throw new Error("outdated");
+  return data;
+}
+const BACKEND_VERSION = 3;
+
+const adminLink = document.getElementById("adminLink");
+const teamBtn   = document.getElementById("teamBtn");
+let checkinDone = false;           // the check-in is asked once per login
+// true  = TESTING: ask at every login (what you have now)
+// false = ask only if today's check-in isn't in the sheet yet (Mon/Wed/Fri slot), e.g. after an Admin reset
+const ASK_EVERY_LOGIN = true;
+
+function setupRole() {
+  adminLink.hidden = currentUser.role !== "admin";
+  teamBtn.hidden = !isStaff();
+  if (currentUser.role === "employee") {
+    api("sync").catch(() => {});                                        // puts their name on their row in the check-in sheet
+    if (!ASK_EVERY_LOGIN) checkinStatus().then((done) => { if (done === true) checkinDone = true; });
+    setInterval(recheckCheckin, 60000);                                 // notice an Admin reset while they are logged in
+  }
+  if (isStaff()) {
+    pollNotifications();
+    setInterval(pollNotifications, 45000);
+  }
+}
+
+/* ---------- Workday Check-In ---------- */
+// Monday/Tuesday -> Monday, Wednesday/Thursday -> Wednesday, Friday/weekend -> Friday
+function slotForToday() {
+  const d = new Date().getDay();               // 0 = Sunday
+  if (d === 1 || d === 2) return "mon";
+  if (d === 3 || d === 4) return "wed";
+  return "fri";
+}
+
+const answers = {};
+const ckNote = document.getElementById("ckNote");
+const ckSubmit = document.getElementById("ckSubmit");
+function setCkNote(text, bad) { ckNote.textContent = text || ""; ckNote.classList.toggle("bad", !!bad); }
+
+document.querySelectorAll("#checkin [data-q]").forEach((group) => {
+  const q = group.dataset.q;
+  const options = group.querySelectorAll("[data-v]");
+  options.forEach((btn) =>
+    btn.addEventListener("click", () => {
+      answers[q] = Number(btn.dataset.v);
+      options.forEach((b) => {
+        const on = b === btn;
+        b.classList.toggle("on", on);
+        b.setAttribute("aria-checked", String(on));
+      });
+      setCkNote("");
+    })
+  );
+});
+
+// is today's check-in in the sheet? true / false, or null if the backend can't be reached
+async function checkinStatus() {
+  try { return (await api("status", { slot: slotForToday() })).done; } catch (e) { return null; }
+}
+
+function resetSurvey() {
+  Object.keys(answers).forEach((k) => delete answers[k]);
+  document.querySelectorAll("#checkin [data-v]").forEach((b) => { b.classList.remove("on"); b.setAttribute("aria-checked", "false"); });
+}
+
+// an Admin reset clears the sheet: employees must answer again
+async function recheckCheckin() {
+  if (!currentUser || currentUser.role !== "employee" || !checkinDone) return;
+  if ((await checkinStatus()) === false) {
+    checkinDone = false;
+    resetSurvey();
+    setCkNote("Your check-in data was reset. Please answer the questions again.");
+    if (document.getElementById("sense").classList.contains("active")) showView("checkin");
+  }
+}
+
+ckSubmit.addEventListener("click", async () => {
+  if (!currentUser) return;
+  if (![1, 2, 3, 4].every((q) => answers[q])) {
+    setCkNote("Please answer all 4 questions before submitting.", true);
+    return;
+  }
+  ckSubmit.disabled = true;
+  setCkNote("Submitting…");
+  try {
+    await api("checkin", { slot: slotForToday(), q1: answers[1], q2: answers[2], q3: answers[3], q4: answers[4] });
+    checkinDone = true;
+    // question 3, first answer: tell the user on the bell (more to come later)
+    if (answers[3] === 1) {
+      addNotification({ title: "Support resources", text: "Thanks for asking. Information about available support resources will appear here soon." });
+    }
+    addNotification({ title: "Check-in submitted", text: "Thank you for completing your Workday Check-In." });
+    setCkNote("");
+    showView("sense");
+  } catch (err) {
+    console.warn("Check-in could not be saved:", err);
+    setCkNote(
+      err.message === "not-connected" ? "The check-in isn't connected yet. Paste your Apps Script URL into ICON_API in login.js."
+      : err.message === "outdated" ? "The Apps Script is out of date. Open it and redeploy: Deploy > Manage deployments > New version."
+      : "Couldn't save your check-in. Please try again.",
+      true
+    );
+  }
+  ckSubmit.disabled = false;
+});
+
+/* ---------- Team data (Admin + HR) ---------- */
+const WL_LABELS = ["", "Very Manageable", "Manageable", "Challenging", "Very Challenging"];
+const RC_LABELS = ["", "Well rested", "Mostly rested", "Rarely rested", "Not rested"];
+function levelOf(v) {
+  const n = Number(v);
+  if (!(n > 0)) return 0;
+  return n <= 1.5 ? 1 : n <= 2.5 ? 2 : n <= 3.5 ? 3 : 4;
+}
+function chip(v, labels) {
+  const el = document.createElement("span");
+  const lv = levelOf(v);
+  el.className = "chip" + (lv ? " lv" + lv : "");
+  el.textContent = lv ? Number(v).toFixed(1) : "–";
+  el.title = lv ? labels[lv] + " (average " + Number(v).toFixed(2) + ")" : "No check-ins yet";
+  return el;
+}
+function avatarFor(p) {
+  const av = document.createElement("span");
+  av.className = "tp-av";
+  const letter = (p.name || "?").trim().charAt(0).toUpperCase();
+  av.textContent = letter;
+  if (p.icon) {
+    const img = new Image();
+    img.alt = "";
+    img.src = iconUrl(p.icon);
+    img.onload = () => { av.textContent = ""; av.appendChild(img); };
+  }
+  return av;
+}
+
+let team = [];
+async function loadTeam() {
+  const data = await api("team");
+  team = data.people || [];
+  renderTeam();
+  return team;
+}
+
+const teamPanel = document.getElementById("teamPanel");
+const tpList = document.getElementById("tpList");
+const tpEmpty = document.getElementById("tpEmpty");
+const tpSub = document.getElementById("tpSub");
+const admRows = document.getElementById("admRows");
+const admCount = document.getElementById("admCount");
+const admMsg = document.getElementById("admMsg");
+
+function renderTeam() {
+  const concerns = team.filter((p) => p.fl === "Concern").length;
+  const summary = team.length + (team.length === 1 ? " employee" : " employees") + (concerns ? " · " + concerns + " with a concern" : "");
+  tpSub.textContent = summary;
+  admCount.textContent = summary;
+
+  // side bar
+  tpList.textContent = "";
+  team.forEach((p) => {
+    const li = document.createElement("li");
+    const who = document.createElement("div");
+    who.className = "tp-who";
+    const name = document.createElement("span");
+    name.className = "tp-name";
+    name.textContent = p.name;
+    if (p.fl === "Concern") {
+      const t = document.createElement("span");
+      t.className = "tag-concern";
+      t.textContent = "Concern";
+      name.appendChild(t);
+    }
+    who.append(avatarFor(p), name);
+    li.append(who, chip(p.wl, WL_LABELS), chip(p.rc, RC_LABELS));
+    tpList.appendChild(li);
+  });
+  tpEmpty.textContent = team.length ? "" : "No employees found.";
+
+  // admin page
+  admRows.textContent = "";
+  if (!team.length) {
+    const e = document.createElement("p");
+    e.className = "adm-empty";
+    e.textContent = "No employees found.";
+    admRows.appendChild(e);
+  }
+  team.forEach((p) => {
+    const row = document.createElement("div");
+    row.className = "adm-row";
+    const n = document.createElement("span");
+    n.textContent = p.name;
+    const f = document.createElement("span");
+    if (p.fl === "Concern") { f.className = "tag-concern"; f.style.marginLeft = "0"; f.style.justifySelf = "start"; f.textContent = "Concern"; }
+    else f.textContent = p.fl || "–";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "adm-reset";
+    btn.textContent = "Reset";
+    armConfirm(btn, "Reset", "Sure?", () => resetData(p.username, p.name, btn));
+    row.append(n, chip(p.wl, WL_LABELS), chip(p.rc, RC_LABELS), f, btn);
+    admRows.appendChild(row);
+  });
+}
+
+async function refreshTeam() {
+  try {
+    await loadTeam();
+  } catch (err) {
+    console.warn("Team could not be loaded:", err);
+    const msg = err.message === "not-connected" ? "Not connected yet (set ICON_API in login.js)."
+      : err.message === "outdated" ? "Apps Script is out of date. Redeploy it as a New version."
+      : "Couldn't load the team. Try again.";
+    tpEmpty.textContent = msg;
+    admCount.textContent = msg;
+  }
+}
+
+/* side bar open / close */
+function setTeamPanel(open) {
+  teamPanel.classList.toggle("open", open);
+  teamPanel.setAttribute("aria-hidden", String(!open));
+  teamBtn.classList.toggle("open", open);
+  teamBtn.setAttribute("aria-expanded", String(open));
+  if (open) { tpEmpty.textContent = team.length ? "" : "Loading…"; refreshTeam(); }
+}
+teamBtn.addEventListener("click", (e) => { e.stopPropagation(); closeDropdowns(); setTeamPanel(!teamPanel.classList.contains("open")); });
+document.getElementById("tpClose").addEventListener("click", () => setTeamPanel(false));
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") setTeamPanel(false); });
+setInterval(() => { if (teamPanel.classList.contains("open")) refreshTeam(); }, 60000);
+
+/* ---------- Admin page: reset check-in data ---------- */
+// a button that needs a second click ("Sure?") within 3 seconds
+function armConfirm(btn, label, askLabel, action) {
+  let timer;
+  btn.addEventListener("click", () => {
+    if (btn.classList.contains("confirm")) {
+      clearTimeout(timer);
+      btn.classList.remove("confirm");
+      btn.textContent = label;
+      action();
+    } else {
+      btn.classList.add("confirm");
+      btn.textContent = askLabel;
+      timer = setTimeout(() => { btn.classList.remove("confirm"); btn.textContent = label; }, 3000);
+    }
+  });
+}
+
+async function resetData(target, label, btn) {
+  admMsg.className = "adm-msg";
+  admMsg.textContent = "Resetting…";
+  if (btn) btn.disabled = true;
+  try {
+    const r = await api("reset", { target });
+    admMsg.textContent = target === "ALL" ? "Reset check-in data for " + r.count + " employees." : "Reset check-in data for " + label + ".";
+    await loadTeam();
+  } catch (err) {
+    console.warn("Reset failed:", err);
+    admMsg.className = "adm-msg bad";
+    admMsg.textContent = "Couldn't reset. Please try again.";
+    if (btn) btn.disabled = false;
+  }
+}
+armConfirm(document.getElementById("admResetAll"), "Reset all employees", "Click again to reset ALL", () => resetData("ALL", "all employees"));
+document.getElementById("admRefresh").addEventListener("click", refreshTeam);
+adminLink.addEventListener("click", () => refreshTeam());
+document.querySelectorAll("[data-view=admin]").forEach((a) => a.addEventListener("click", () => refreshTeam()));
+
+/* ---------- Notifications for Admin / HR (contact requests, concerns) ---------- */
+async function pollNotifications() {
+  if (!currentUser || !isStaff() || !ICON_API) return;
+  const key = "mantraNotifSeen:" + currentUser.username.toLowerCase();
+  let since = 0;
+  try { since = Number(localStorage.getItem(key)) || 0; } catch (e) {}
+  if (!since) since = Date.now() - 24 * 3600 * 1000;               // first time: only the last day
+  try {
+    const data = await api("notifs", { since });
+    (data.items || []).forEach((n) => addNotification({ title: n.title, text: n.text }));
+    try { localStorage.setItem(key, String(data.latest || since)); } catch (e) {}
+  } catch (err) {
+    console.warn("Notifications could not be loaded:", err.message);
+  }
+}
