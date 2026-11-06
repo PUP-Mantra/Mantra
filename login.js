@@ -421,6 +421,16 @@ function showView(name) {
   const target = document.getElementById(name);
   if (!target) return;
 
+  // the page being left fades out (so going back to Home is animated too)
+  pages.forEach((p) => {
+    // only fade the old page out when we're going back to Home; otherwise the new page just covers it
+    if (p !== target && p.classList.contains("active") && !target.classList.contains("page")) {
+      p.classList.remove("active");
+      p.classList.add("leaving");
+      setTimeout(() => p.classList.remove("leaving"), 350);
+    }
+  });
+  pages.forEach((p) => { if (p === target) p.classList.remove("leaving"); });
   pages.forEach((p) => p.classList.toggle("active", p === target));   // "home" = no page on top
   const top = parentOf[name] || name;
   navLinks.forEach((a) => a.classList.toggle("active", a.dataset.view === top));
