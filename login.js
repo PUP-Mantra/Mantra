@@ -502,6 +502,7 @@ function showView(name) {
   history.replaceState(null, "", "#" + name);
   closeDropdowns();
   if (name === "tracker") trEnter();
+  if (name === "garden") gdEnter();
 }
 
 document.querySelectorAll("[data-view]").forEach((a) => {
@@ -665,7 +666,7 @@ async function api(action, payload = {}) {
   if (action !== "icon" && data.v !== BACKEND_VERSION) throw new Error("outdated");
   return data;
 }
-const BACKEND_VERSION = 7;
+const BACKEND_VERSION = 12;
 
 const adminLink = document.getElementById("adminLink");
 const teamBtn   = document.getElementById("teamBtn");
@@ -677,6 +678,8 @@ const ASK_EVERY_LOGIN = true;
 function setupRole() {
   adminLink.hidden = currentUser.role !== "admin";
   teamBtn.hidden = !isStaff();
+  $("gdAdminTab").hidden = currentUser.role !== "admin";
+  $("gdStyle").hidden = currentUser.role !== "admin";
   document.getElementById("tdClear").hidden = currentUser.role !== "admin";      // only Admin can reset messages
   if (currentUser.role === "employee") {
     api("sync").catch(() => {});                                        // puts their name on their row in the check-in sheet
@@ -1154,6 +1157,7 @@ document.querySelectorAll("[data-view=admin]").forEach((a) => a.addEventListener
 // employees: messages from HR / Admin.   HR / Admin: contact requests, concerns, replies.
 function openNotification(n) {
   if (!currentUser || !n.thread) return;
+  if (n.kind === "garden") { showView("garden"); return; }
   if (n.kind === "concern") { trPendingOpen = String(n.thread).replace(/^c:/, ""); showView("tracker"); return; }
   if (currentUser.role === "employee") openMessages();
   else viewEmployee(n.thread);
@@ -1170,6 +1174,7 @@ async function pollNotifications() {
     (data.items || []).forEach((n) => addNotification({ title: n.title, text: n.text, key: "srv" + n.id, kind: n.kind, thread: n.thread }));
     try { localStorage.setItem(key, String(data.latest || since)); } catch (e) {}
     if (currentUser.role === "employee" && (data.items || []).length && !msgModal.hidden) loadEmpThread();
+    if ((data.items || []).some((n) => n.kind === "garden")) gdGotItems();
   } catch (err) {
     console.warn("Notifications could not be loaded:", err.message);
   }
@@ -1652,3 +1657,522 @@ async function rtTick() {
 }
 setInterval(rtTick, 4000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { rtTick(); pollNotifications(); } });
+
+
+/* =====================================================
+   MANTRA GARDEN
+   ===================================================== */
+const GD_NAMES = { can: "Watering Can", mush: "Mushroom", fert: "Fertilizer", lady: "Ladybug", butter: "Butterfly", afert: "Admin Fertilizer" };
+const GD_INFO = {
+  can: "+1 to 2 XP", mush: "+3 to 5 XP", fert: "+6 to 10 XP",
+  lady: "Flies around. Protects your XP for 1 missed day.", butter: "Flies, then walks, then leaves. Protects 2 missed days.",
+  afert: "Jumps your garden to the next level.",
+};
+const GD_ORDER = ["can", "mush", "fert", "lady", "butter", "afert"];
+const GD_STAGES = [
+  { n: "Seedling", need: 20, icon: "gdiSeed" }, { n: "Young Sprout", need: 35, icon: "gdiSprout" }, { n: "Growing Tree", need: 70, icon: "gdiSapling" },
+  { n: "Thriving Tree", need: 100, icon: "gdiTree" }, { n: "Vigorous Tree", need: 200, icon: "gdiBigTree" }, { n: "Tree of Growth", need: 0, icon: "gdiTog" },
+];
+const GD_QUOTES = [
+  ["The best time to plant a tree was twenty years ago. The second best time is now.", "Chinese proverb"],
+  ["A journey of a thousand miles begins with a single step.", "Lao Tzu, Tao Te Ching"],
+  ["Great oaks from little acorns grow.", "English proverb"],
+  ["It does not matter how slowly you go, as long as you do not stop.", "Confucius"],
+  ["To plant a garden is to believe in tomorrow.", "Audrey Hepburn"],
+  ["Adopt the pace of nature: her secret is patience.", "Ralph Waldo Emerson"],
+  ["Don't judge each day by the harvest you reap, but by the seeds you plant.", "Robert Louis Stevenson"],
+  ["The earth laughs in flowers.", "Ralph Waldo Emerson, Hamatreya"],
+  ["We must cultivate our garden.", "Voltaire, Candide"],
+  ["He that plants trees loves others besides himself.", "Thomas Fuller, Gnomologia"],
+  ["To everything there is a season, and a time to every purpose under the heaven.", "Ecclesiastes 3:1"],
+  ["Be not afraid of growing slowly, be afraid only of standing still.", "Chinese proverb"],
+  ["Rome was not built in a day.", "English proverb"],
+  ["Slow and steady wins the race.", "Aesop, The Tortoise and the Hare"],
+  ["Small deeds done are better than great deeds planned.", "Peter Marshall"],
+  ["Every small step helps me grow.", "Mantra"],
+  ["Rest is part of growing too.", "Mantra"],
+  ["Progress, not perfection.", "Mantra"],
+  ["You are allowed to be both a work in progress and proud of how far you've come.", "Mantra"],
+  ["Fall seven times, stand up eight.", "Japanese proverb"],
+  ["Be patient with yourself. Nothing in nature blooms all year.", "Mantra"],
+  ["Every day you show up, you become a little stronger.", "Mantra"],
+  ["Growth begins at the edge of your comfort zone.", "Mantra"],
+  ["Asking for help is a way of growing, not a sign of weakness.", "Mantra"],
+  ["Take a breath. Being kind to yourself counts as work too.", "Mantra"],
+  ["Who you are becoming matters more than how fast you get there.", "Mantra"],
+  ["Mistakes are the soil where wisdom grows.", "Mantra"],
+  ["Celebrate the small wins. They add up to big change.", "Mantra"],
+];
+let gd = null;                 // last state from the server
+let gdLevelSeen = null;
+let gdLastQuote = -1;
+let gdTree = "cherry";
+let gdTreeBusy = 0;        // tree saves still on their way (their answers must not flip the tree back)
+let gdBusy = 0;            // item uses still on their way
+const gdThresh = [0, 20, 55, 125, 225, 425];
+function gdDay() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function gdToast(text, kind) {
+  const t = document.createElement("div");
+  t.className = "gd-toast " + (kind || "");
+  t.textContent = text;
+  $("gdToasts").appendChild(t);
+  setTimeout(() => t.remove(), 4700);
+}
+function gdIcon(id, cls) { return '<svg class="' + (cls || "") + '" viewBox="0 0 64 64"><use href="#' + id + '"/></svg>'; }
+const gdItemIcon = (k) => ({ can: "gdiCan", mush: "gdiMush", fert: "gdiFert", lady: "gdiLady", butter: "gdiButter", afert: "gdiAFert", login: "gdiLogin" }[k] || "");
+
+
+/* ----- the plant "talks": a speech bubble beside the tree that fades away ----- */
+const GD_MIDY = { cherry: [700, 640, 653, 545, 405, 210], umbrella: [700, 640, 676, 601, 525, 378] };      // top of the plant in the scene, per level
+const GD_RIGHT = { cherry: [34, 120, 167, 336, 508, 936], umbrella: [34, 120, 63, 257, 389, 570] };      // half width
+let gdBubbleTimer = 0, gdBubbleFade = 0;
+function gdScale() { const g = $("garden"), W = g.clientWidth, H = g.clientHeight, s = Math.max(W / 1600, H / 900); return { W, H, s, ox: (W - 1600 * s) / 2, oy: H - 900 * s }; }
+function gdPlaceBubble() {
+  const b = $("gdBubble");
+  if (b.hidden) return;
+  const m = gdScale(), lv = gd ? gd.level : 0;
+  const svg = document.querySelector(".gd-svg");
+  const k = parseFloat(document.querySelector(".gd-plant").style.getPropertyValue("--gs")) || 1;
+  const c = parseFloat(svg.style.getPropertyValue("--gc")) || 1;
+  // plant growth scale, then the camera pull-back (about the bottom centre)
+  const px = (x) => 800 + (x - 800) * k, py = (y) => 768 + (y - 768) * k;
+  const sx = (x) => m.ox + (800 + (px(x) - 800) * c) * m.s, sy = (y) => m.oy + (900 + (py(y) - 900) * c) * m.s;
+  const bw = b.offsetWidth, bh = b.offsetHeight, pad = 8;
+  const right = sx(800 + GD_RIGHT[gdTree][lv]);
+  const midY = sy(GD_MIDY[gdTree][lv]);
+  b.classList.remove("tail-r", "tail-l", "tail-b");
+  if (m.W > 820 && right + bw + 20 < m.W - 8) {
+    // beside the middle of the tree, tail pointing at it
+    b.classList.add("tail-l");
+    b.style.left = right + 14 + "px";
+    b.style.top = Math.max(pad, Math.min(midY - bh / 2, m.H - bh - 90)) + "px";
+    b.style.setProperty("--ox", "0%");
+  } else {
+    b.classList.add("tail-b");
+    const cx = m.ox + 800 * m.s;
+    const x = Math.min(Math.max(pad, cx - bw / 2), m.W - bw - pad);
+    b.style.left = x + "px";
+    b.style.top = Math.max(pad, Math.min(midY - bh - 16, m.H - bh - 120)) + "px";
+    b.style.setProperty("--tx", Math.min(bw - 30, Math.max(18, cx - x - 9)) + "px");
+    b.style.setProperty("--ox", "50%");
+  }
+}
+function gdSay(text, ref, ms) {
+  const b = $("gdBubble");
+  clearTimeout(gdBubbleTimer); clearTimeout(gdBubbleFade);
+  $("gdQuote").textContent = text;
+  $("gdRef").textContent = ref || "";
+  b.classList.toggle("plain", !ref);
+  b.hidden = false;
+  b.classList.remove("show");
+  gdPlaceBubble();
+  void b.offsetWidth;
+  b.classList.add("show");
+  gdBubbleTimer = setTimeout(() => {
+    b.classList.remove("show");
+    gdBubbleFade = setTimeout(() => { b.hidden = true; }, 500);
+  }, ms || 8000);
+}
+function gdHideBubble() { clearTimeout(gdBubbleTimer); clearTimeout(gdBubbleFade); const b = $("gdBubble"); b.classList.remove("show"); b.hidden = true; }
+window.addEventListener("resize", () => { if (!$("gdBubble").hidden) gdPlaceBubble(); });
+
+/* ----- ambient life: pollen and leaves drifting down ----- */
+setInterval(() => {
+  if (document.hidden || !$("garden").classList.contains("active")) return;
+  const box = $("gdAmbient");
+  if (box.childElementCount > 14) return;
+  const e = document.createElement("i");
+  const leaf = Math.random() < 0.35;
+  e.className = "gd-amb " + (leaf ? "leaf" : "pollen");
+  e.style.left = Math.random() * 100 + "%";
+  e.style.animationDuration = (9 + Math.random() * 9) + "s";
+  box.appendChild(e);
+  setTimeout(() => e.remove(), 19000);
+}, 1400);
+
+/* ----- loading ----- */
+async function gdEnter() {
+  if (!currentUser) return;
+  $("gdAdminTab").hidden = currentUser.role !== "admin";
+  $("gdStyle").hidden = currentUser.role !== "admin";
+  if (gd) gdRender(gd, true);
+  await gdLoad();
+  if (gd) gdSay(gd.loggedToday ? "Thanks for visiting today! Let's keep growing." : "Hi! Tap the quote button to log in today and keep me growing.", "", 7000);
+}
+async function gdLoad() {
+  try {
+    const d = await api("gState", { day: gdDay() });
+    gdEvents(d.events);
+    gdRender(d);
+  } catch (err) {
+    gdToast(err.message === "outdated" ? "The backend script is out of date. Please deploy the newest version." : "Couldn't load your garden.", "bad");
+  }
+}
+function gdGotItems() {                 // a bell notification said something arrived
+  $("gdPack").classList.add("ping");
+  setTimeout(() => $("gdPack").classList.remove("ping"), 2600);
+  if ($("garden").classList.contains("active")) gdLoad();
+}
+function gdEvents(events) {
+  (events || []).forEach((e) => {
+    if (e.type === "xp") gdToast("You missed a day: -" + e.amount + " XP", "bad");
+    else if (e.type === "lady-gone") gdToast("You missed a day. A Ladybug left instead of losing XP.", "bad");
+    else if (e.type === "fly-walk") gdToast("You missed a day. Your Butterfly stopped flying and is walking on the grass.", "bad");
+    else if (e.type === "walk-gone") gdToast("You missed a day. Your walking Butterfly left the garden.", "bad");
+  });
+}
+
+/* ----- drawing ----- */
+function gdRender(d, quiet) {
+  gd = d;
+  if (!gdTreeBusy && (d.tree === "cherry" || d.tree === "umbrella")) gdTree = d.tree;
+  $("gdPick").hidden = !(currentUser && currentUser.role !== "admin" && !d.tree);
+  const lv = d.level;
+  document.querySelectorAll(".gd-stage").forEach((s) => s.classList.toggle("on", Number(s.dataset.l) === lv && (!s.dataset.t || s.dataset.t === gdTree)));
+  document.querySelectorAll("#gdStyle button").forEach((b) => b.classList.toggle("on", b.dataset.t === gdTree));
+  // the plant grows (and shrinks) a little with every XP, not only at level changes
+  const p = d.max ? 1 : Math.min(1, Math.max(0, d.into / d.need));
+  document.querySelector(".gd-plant").style.setProperty("--gs", (lv === 0 ? 0.7 + 0.5 * p : lv >= 5 ? 1 : 0.9 + 0.1 * p).toFixed(3));
+  // the soil starts as a mound, then settles and flattens as the tree grows (its roots end up buried)
+  const SX = [1, 1.04, 1.12, 1.25, 1.4, 1.55], SY = [1, 1, 0.8, 0.6, 0.45, 0.35], SF = [1, 1, 1, 0.95, 0.9, 0.85];
+  const mix = (A) => (lv >= 5 ? A[5] : A[lv] + (A[lv + 1] - A[lv]) * p).toFixed(3);
+  const pl = document.querySelector(".gd-plant").style;
+  pl.setProperty("--gsl", mix(SX)); pl.setProperty("--gsy", mix(SY)); pl.setProperty("--gsf", mix(SF));
+  // the camera pulls back as the tree grows, so the garden around it looks smaller
+  const ZOOM = [1, 1, 0.94, 0.85, 0.72, 0.6];
+  const z = lv >= 5 ? ZOOM[5] : ZOOM[lv] + (ZOOM[lv + 1] - ZOOM[lv]) * p;
+  document.querySelector(".gd-svg").style.setProperty("--gz", z.toFixed(3));
+  const CAM = [1, 1, 1, 0.9, 0.76, 0.62];
+  const cz = lv >= 5 ? CAM[5] : CAM[lv] + (CAM[lv + 1] - CAM[lv]) * p;
+  document.querySelector(".gd-svg").style.setProperty("--gc", cz.toFixed(3));
+  $("gdLvNum").textContent = "Level " + lv;
+  $("gdLvName").textContent = GD_STAGES[lv].n;
+  $("gdLvIcon").setAttribute("href", "#" + GD_STAGES[lv].icon);
+  $("gdBar").style.width = (d.max ? 100 : p * 100) + "%";
+  $("gdXp").textContent = d.max ? d.xp + " XP" : d.into + "/" + d.need;
+  $("gdXpNote").textContent = d.max ? "Fully grown!" : "Until next level";
+  if (!quiet && gdLevelSeen !== null && lv !== gdLevelSeen) {
+    if (lv > gdLevelSeen) { gdBurst(); gdToast("Level up! Your garden is now a " + GD_STAGES[lv].n + ".", "good"); }
+    else gdToast("Your garden shrank back to a " + GD_STAGES[lv].n + ".", "bad");
+  }
+  gdLevelSeen = lv;
+  setTimeout(gdPlaceBubble, 60);
+  gdRenderSteps(lv);
+  gdRenderItems(d);
+  gdRenderActs(d.log);
+  const lg = $("gdLogin");
+  lg.textContent = d.loggedToday ? "\u2713 Daily login done" : "Tap the quote button to log in today";
+  lg.classList.toggle("ok", !!d.loggedToday);
+  $("gdQuoteBtn").classList.toggle("done", !!d.loggedToday);
+  gdCreatures(d.act);
+}
+function gdRenderSteps(lv) {
+  const ol = $("gdSteps");
+  ol.textContent = "";
+  GD_STAGES.forEach((s, i) => {
+    const li = document.createElement("li");
+    li.className = i < lv ? "done" : i === lv ? "now" : "";
+    li.innerHTML = '<span class="gd-st">' + gdIcon(s.icon) + "</span><b></b><small></small>";
+    li.querySelector("b").textContent = s.n;
+    li.querySelector("small").textContent = "Level " + i + (s.need ? " \u00b7 " + s.need + " XP" : " \u00b7 Max");
+    ol.appendChild(li);
+  });
+}
+function gdRenderItems(d) {
+  const grid = $("gdGrid");
+  grid.textContent = "";
+  let total = 0;
+  GD_ORDER.forEach((k) => {
+    if (k === "afert" && !d.infinite) return;
+    const n = d.inv[k] || 0;
+    total += k === "afert" ? 0 : n;
+    const c = document.createElement("div");
+    c.className = "gd-itemcard" + (k === "afert" ? " admin" : "") + (!d.infinite && !n ? " zero" : "");
+    c.innerHTML = gdIcon(gdItemIcon(k)) + "<b></b><small></small><span class='cnt'></span><button type='button'>Use</button>";
+    c.querySelector("b").textContent = GD_NAMES[k];
+    c.querySelector("small").textContent = GD_INFO[k];
+    c.querySelector(".cnt").textContent = d.infinite ? "\u221e" : "\u00d7" + n;
+    const b = c.querySelector("button");
+    b.disabled = !d.infinite && !n;
+    b.addEventListener("click", () => gdUse(k, b));
+    grid.appendChild(c);
+  });
+  const badge = $("gdPackN");
+  badge.textContent = total;
+  badge.hidden = d.infinite || !total;
+}
+function gdRenderActs(log) {
+  const ul = $("gdActs");
+  ul.textContent = "";
+  if (!log || !log.length) { ul.innerHTML = '<li class="gd-empty-li"><span class="gd-empty" style="grid-column:1/-1">Nothing yet. Complete tasks to earn rewards.</span></li>'; return; }
+  log.forEach((a) => {
+    const li = document.createElement("li");
+    const bad = /Missed|reset|shrank/i.test(a.txt);
+    const ic = a.item ? gdIcon(gdItemIcon(a.item), "gd-item") : "";
+    const when = new Date(a.ts).toLocaleDateString([], { month: "short", day: "numeric" });
+    li.innerHTML = '<span class="gd-ico' + (bad ? " bad" : "") + '">' + gdIcon(bad ? "gdiMiss" : "gdiLogin") + "</span><span><b></b><small></small></span><span>" + ic + '</span><button type="button" class="gd-x" aria-label="Clear this activity" title="Clear">&times;</button>';
+    li.querySelector(".gd-x").addEventListener("click", () => gdClearLog({ ts: a.ts, txt: a.txt }));
+    li.querySelector("b").textContent = a.txt;
+    li.querySelector("small").textContent = when;
+    ul.appendChild(li);
+  });
+}
+async function gdClearLog(p) {
+  if (gd && gd.log) { gd.log = p.all ? [] : gd.log.filter((e) => !(e.ts === p.ts && e.txt === p.txt)); gdRenderActs(gd.log); }
+  try { const d = await gdSend("gClearLog", p); gdRender(d, true); }
+  catch (err) { gdToast(err.message === "outdated" ? "The backend script is out of date." : "Couldn't clear that.", "bad"); }
+}
+$("gdClearAll").addEventListener("click", () => { if (gd && gd.log && gd.log.length) gdClearLog({ all: true }); });
+/* Admin can switch the tree style any time; Employee/HR choose when they plant (and again after a reset) */
+async function gdSetTree(t) {
+  if (gdTree === t && gd && gd.tree === t) return;
+  const prev = gd ? gd.tree : "", prevTree = gdTree;
+  gdTree = t;                                        // the new tree shows immediately
+  if (gd) { gd.tree = t; gdRender(gd, true); }
+  gdTreeBusy++;
+  try {
+    const d = await gdSend("gTree", { tree: t, day: gdDay() });
+    gdTreeBusy--;
+    if (!gdTreeBusy) gdRender(d, true);
+  } catch (err) {
+    gdTreeBusy--;
+    if (!gdTreeBusy) {
+      gdTree = prevTree;
+      if (gd) { gd.tree = prev; gdRender(gd, true); }
+    }
+    gdToast(err.message === "outdated" ? "The backend script is out of date." : err.message === "chosen" ? "You already planted a tree." : "Couldn't save your tree.", "bad");
+  }
+}
+document.querySelectorAll("#gdStyle button").forEach((b) => b.addEventListener("click", () => gdSetTree(b.dataset.t)));
+document.querySelectorAll("#gdPick button").forEach((b) => b.addEventListener("click", () => gdSetTree(b.dataset.t)));
+$("gdViewAll").addEventListener("click", () => { const on = $("gdRecent").classList.toggle("all"); $("gdViewAll").innerHTML = on ? "Show less <b>&uarr;</b>" : "View All <b>&rarr;</b>"; });
+$("gdGrowth").addEventListener("click", () => {
+  const p = $("gdProgress");
+  p.hidden = !p.hidden;
+  $("gdGrowth").setAttribute("aria-expanded", String(!p.hidden));
+});
+$("gdProgClose").addEventListener("click", () => { $("gdProgress").hidden = true; $("gdGrowth").setAttribute("aria-expanded", "false"); });
+$("gdPack").addEventListener("click", () => {
+  const p = $("gdItems");
+  p.hidden = !p.hidden;
+  $("gdPack").setAttribute("aria-expanded", String(!p.hidden));
+});
+$("gdItemsClose").addEventListener("click", () => { $("gdItems").hidden = true; $("gdPack").setAttribute("aria-expanded", "false"); });
+
+/* ----- creatures: ladybugs, flying and walking butterflies ----- */
+function gdMakeBug(kind) {
+  const el = document.createElement("div");
+  el.className = "gd-bug " + kind;
+  el.innerHTML = gdIcon(kind === "lady" ? "gdiLady" : "gdiButter");
+  const r = (a, b) => a + Math.random() * (b - a);
+  el.style.left = r(12, 70) + "%";
+  el.style.top = (kind === "walk" ? r(76, 90) : kind === "fly" ? r(20, 52) : r(24, 64)) + "%";
+  el.style.setProperty("--d", (kind === "walk" ? r(30, 50) : r(14, 26)).toFixed(1) + "s");
+  el.style.setProperty("--dl", "-" + r(0, 20).toFixed(1) + "s");
+  return el;
+}
+function gdCreatures(act) {
+  const box = $("gdCreatures");
+  [["lady", Math.min(12, act.lady)], ["fly", Math.min(10, act.fly)], ["walk", Math.min(10, act.walk)]].forEach(([kind, want]) => {
+    const have = box.querySelectorAll(".gd-bug." + kind);
+    for (let i = have.length; i < want; i++) box.appendChild(gdMakeBug(kind));
+    for (let i = have.length - 1; i >= want; i--) have[i].remove();
+  });
+}
+
+/* ----- effects ----- */
+function gdFloat(text, bad) {
+  const f = document.createElement("div");
+  f.className = "gd-float" + (bad ? " bad" : "");
+  f.textContent = text;
+  $("gdFx").appendChild(f);
+  setTimeout(() => f.remove(), 1900);
+}
+function gdBurst() {
+  for (let i = 0; i < 16; i++) {
+    const s = document.createElement("i");
+    s.className = "gd-spark";
+    s.style.left = 50 + (Math.random() * 14 - 7) + "%";
+    s.style.top = 46 + (Math.random() * 14 - 4) + "%";
+    const a = Math.random() * Math.PI * 2, r = 5 + Math.random() * 9;
+    s.style.setProperty("--x", Math.cos(a) * r + "rem");
+    s.style.setProperty("--y", Math.sin(a) * r + "rem");
+    $("gdFx").appendChild(s);
+    setTimeout(() => s.remove(), 1300);
+  }
+}
+function gdRain() {
+  for (let i = 0; i < 14; i++) {
+    const s = document.createElement("i");
+    s.className = "gd-drop";
+    s.style.left = 47 + Math.random() * 6 + "%";
+    s.style.top = 34 + Math.random() * 10 + "%";
+    s.style.animationDelay = Math.random() * 0.5 + "s";
+    $("gdFx").appendChild(s);
+    setTimeout(() => s.remove(), 1700);
+  }
+}
+
+/* ----- using an item ----- */
+/* Garden actions answer instantly on screen and are saved in the background, one after another */
+let gdQueue = Promise.resolve();
+function gdSend(action, payload) {
+  const run = () => api(action, payload);
+  const p = gdQueue.then(run, run);
+  gdQueue = p.catch(() => {});
+  return p;
+}
+const GD_SAY = { can: "Ahh, that water feels great!", mush: "Yum, thank you!", fert: "I feel stronger already!", afert: "Wow, I grew a whole level!", lady: "A new friend! Hello, Ladybug!", butter: "A butterfly! How lovely." };
+function gdApplyXp(xp) {
+  xp = Math.min(425, Math.max(0, Math.round(xp)));
+  let lv = 0;
+  for (let i = 1; i < gdThresh.length; i++) if (xp >= gdThresh[i]) lv = i;
+  gd.xp = xp; gd.level = lv; gd.max = lv >= 5;
+  gd.into = gd.max ? 0 : xp - gdThresh[lv];
+  gd.need = gd.max ? 0 : gdThresh[lv + 1] - gdThresh[lv];
+}
+const GD_RANGE = { can: [1, 2], mush: [3, 5], fert: [6, 10] };
+function gdLogNow(txt, item, xp) { if (!gd.log) gd.log = []; gd.log.unshift({ ts: Date.now(), txt, item: item || "", xp: xp || 0 }); }
+async function gdUse(item, btn) {
+  const before = gd ? JSON.parse(JSON.stringify(gd)) : null;
+  if (before && !before.infinite && !(before.inv[item] > 0)) return;
+  let roll = 0;
+  if (before) {
+    if (!before.infinite) gd.inv[item] -= 1;
+    if (item === "afert") {
+      if (gd.level < 5) { const t = gdThresh[gd.level + 1]; gdLogNow("Used Admin Fertilizer: jumped to the next level", "afert", t - gd.xp); gdApplyXp(t); }
+    } else if (GD_RANGE[item]) {
+      const r = GD_RANGE[item];
+      roll = r[0] + Math.floor(Math.random() * (r[1] - r[0] + 1));      // the number is decided here, so it can be shown (and saved) at once
+      if (gd.xp < 425) { gdApplyXp(gd.xp + roll); gdLogNow("Used a " + GD_NAMES[item] + ": +" + roll + " XP", item, roll); gdFloat("+" + roll + " XP"); }
+    } else if (item === "lady") { gd.act.lady = (gd.act.lady || 0) + 1; gdLogNow("A Ladybug joined the garden", "lady"); gdToast("A Ladybug joined your garden.", "good"); }
+    else if (item === "butter") { gd.act.fly = (gd.act.fly || 0) + 1; gdLogNow("A Butterfly joined the garden", "butter"); gdToast("A Butterfly joined your garden.", "good"); }
+    gdRender(gd);                                    // tree, bar, items and Recent Activities all change right now
+  }
+  if (item === "can") gdRain(); else if (item !== "lady" && item !== "butter") gdBurst();
+  const plant = document.querySelector(".gd-plant");
+  plant.classList.remove("pulse"); void plant.getBoundingClientRect(); plant.classList.add("pulse");
+  gdSay(GD_SAY[item] || "Thank you!", "", 5000);
+  gdBusy++;
+  try {
+    const d = await gdSend("gUse", { item, day: gdDay(), roll });
+    gdBusy--;
+    gdEvents(d.events);
+    if (!gdBusy) gdRender(d, true);                  // settle on the saved numbers once every use has been saved
+  } catch (err) {
+    gdBusy--;
+    if (before) { gd = before; gdRender(gd, true); }  // undo
+    gdToast(err.message === "full" ? "Your garden is fully grown already." : err.message === "outdated" ? "The backend script is out of date." : "Couldn't use that item.", "bad");
+  }
+}
+
+/* ----- quote = daily login ----- */
+$("gdQuoteBtn").addEventListener("click", async () => {
+  let i;
+  do { i = Math.floor(Math.random() * GD_QUOTES.length); } while (i === gdLastQuote && GD_QUOTES.length > 1);
+  gdLastQuote = i;
+  gdSay(GD_QUOTES[i][0], "\u2014 " + GD_QUOTES[i][1], 9000);
+  if (gd && gd.loggedToday) return;
+  try {
+    const d = await api("gLogin", { day: gdDay() });
+    gdEvents(d.events);
+    gdRender(d);
+    if (d.first) gdToast("Daily login done. Your garden is safe today.", "good");
+  } catch (err) { gdToast("Couldn't save your daily login. Try again.", "bad"); }
+});
+
+/* the day changed while the garden was open */
+setInterval(() => { if (gd && !document.hidden && $("garden").classList.contains("active") && gd.today !== gdDay()) gdLoad(); }, 60000);
+
+/* ----- Admin: everybody's garden ----- */
+const GD_GIFTS = ["can", "mush", "fert", "lady", "butter"];
+function gdGiftOptions(sel) { sel.textContent = ""; GD_GIFTS.forEach((k) => { const o = document.createElement("option"); o.value = k; o.textContent = GD_NAMES[k]; sel.appendChild(o); }); }
+gdGiftOptions($("gdAllItem"));
+function gdAdmMsg(t, bad) { const m = $("gdAdmMsg"); m.textContent = t || ""; m.classList.toggle("bad", !!bad); }
+$("gdAdminTab").addEventListener("click", () => { $("gdDrawer").hidden = false; gdAdminLoad(); });
+$("gdDrawerClose").addEventListener("click", () => { $("gdDrawer").hidden = true; });
+const gdRows = {};          // username -> row element, so live updates change rows in place
+let gdAdmBusy = false;
+async function gdAdminLoad() {
+  if (gdAdmBusy) return;
+  gdAdmBusy = true;
+  try {
+    const d = await api("gAdmin");
+    const box = $("gdUsers");
+    if (!d.people.length) { box.innerHTML = '<p class="gd-empty">No other accounts yet.</p>'; return; }
+    const seen = {};
+    d.people.forEach((p) => {
+      seen[p.username] = 1;
+      let row = gdRows[p.username];
+      if (!row || !row.isConnected) { row = gdUserRow(p); gdRows[p.username] = row; box.appendChild(row); }
+      else row._set(p);
+    });
+    Object.keys(gdRows).forEach((u) => { if (!seen[u]) { gdRows[u].remove(); delete gdRows[u]; } });
+  } catch (err) { gdAdmMsg(err.message === "outdated" ? "The backend script is out of date." : "Couldn't load the gardens.", true); }
+  finally { gdAdmBusy = false; }
+}
+/* Admin watches everybody's trees grow while the drawer is open */
+setInterval(() => { if (!$("gdDrawer").hidden && !document.hidden && $("garden").classList.contains("active")) gdAdminLoad(); }, 3000);
+function gdUserRow(p) {
+  const row = document.createElement("div");
+  row.className = "gd-user";
+  row.innerHTML = '<div class="top"><span class="av"></span><span class="nm"><b></b><small></small></span><span class="gd-tl"></span></div><div class="gd-bar"><i></i></div><div class="btns"></div>';
+  const av = row.querySelector(".av");
+  if (p.icon && typeof iconUrl === "function") { const im = document.createElement("img"); im.alt = ""; im.src = iconUrl(p.icon); av.appendChild(im); } else av.textContent = (p.name || "?").charAt(0).toUpperCase();
+  row.querySelector("b").textContent = p.name;
+  let last = null;
+  row._set = (q) => {
+    const pct = q.level >= 5 ? 100 : Math.round((q.into / q.need) * 100);
+    row.querySelector("small").textContent = (q.role === "hr" ? "HR" : "Employee") + " \u00b7 Level " + q.level + " " + GD_STAGES[q.level].n + " \u00b7 " + q.xp + " XP";
+    row.querySelector(".gd-bar i").style.width = pct + "%";
+    row.querySelector(".gd-tl").innerHTML = gdIcon(GD_STAGES[q.level].icon);
+    if (last !== null && last !== q.xp) { row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash"); }
+    last = q.xp;
+  };
+  row._set(p);
+  const btns = row.querySelector(".btns");
+  const gift = document.createElement("button");
+  gift.type = "button"; gift.className = "adm-btn"; gift.textContent = "Gift";
+  const reset = document.createElement("button");
+  reset.type = "button"; reset.className = "adm-btn danger"; reset.textContent = "Reset";
+  btns.append(gift, reset);
+  gift.addEventListener("click", () => {
+    const ex = row.querySelector(".giftrow");
+    if (ex) { ex.remove(); return; }
+    const g = document.createElement("div");
+    g.className = "gd-giftrow giftrow";
+    g.innerHTML = '<select aria-label="Item"></select><input type="number" min="1" max="20" value="1" aria-label="How many"><button type="button" class="adm-btn">Send</button>';
+    gdGiftOptions(g.querySelector("select"));
+    g.querySelector("button").addEventListener("click", () => gdGift(p.username, p.name, g.querySelector("select").value, g.querySelector("input").value));
+    row.appendChild(g);
+  });
+  armConfirm(reset, "Reset", "Sure?", () => gdReset(p.username, p.name));
+  return row;
+}
+async function gdGift(target, label, item, n) {
+  gdAdmMsg("Sending…");
+  try {
+    const r = await api("gGift", { target, item, n: Number(n) || 1 });
+    gdAdmMsg("Gifted " + (Number(n) || 1) + " " + GD_NAMES[item] + (target === "ALL" ? " to " + r.count + " people." : " to " + label + "."));
+  } catch (err) { gdAdmMsg("Couldn't send the gift.", true); }
+}
+async function gdReset(target, label) {
+  gdAdmMsg(target === "ALL" ? "Resetting all gardens…" : "Resetting " + label + "'s garden…");
+  try {
+    const r = await gdSend("gReset", { target });
+    gdAdmMsg(target === "ALL" ? "Reset " + r.count + " gardens." : "Reset " + label + "'s garden.");
+    gdAdminLoad();
+  } catch (err) { gdAdmMsg("Couldn't reset.", true); }
+}
+armConfirm($("gdResetMe"), "Reset my garden", "Click again to reset mine", async () => {
+  const snap = gd ? JSON.parse(JSON.stringify(gd)) : null;
+  if (gd) {                                          // empty garden right away
+    gd = Object.assign({}, gd, { xp: 0, level: 0, max: false, into: 0, need: 20, act: { lady: 0, fly: 0, walk: 0 }, inv: gd.infinite ? gd.inv : {}, log: [{ ts: Date.now(), txt: "You reset your garden", item: "" }].concat(gd.log || []) });
+    gdRender(gd, true);
+  }
+  gdAdmMsg("Your garden was reset.");
+  try { const d = await gdSend("gReset", { self: true }); await gdLoad(); }
+  catch (err) { if (snap) gdRender(snap, true); gdAdmMsg(err.message === "outdated" ? "The backend script is out of date." : "Couldn't reset your garden.", true); }
+});
+$("gdGiftAll").addEventListener("click", () => gdGift("ALL", "everyone", $("gdAllItem").value, $("gdAllN").value));
+armConfirm($("gdResetAll"), "Reset all gardens", "Click again to reset ALL", () => gdReset("ALL", "everyone"));
