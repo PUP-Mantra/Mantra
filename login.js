@@ -217,9 +217,12 @@ const notifications = [];
 const bellBtn = document.getElementById("bellBtn");
 const notifList = document.getElementById("notifList");
 const notifEmpty = document.getElementById("notifEmpty");
+const notifClear = document.getElementById("notifClear");
 
-function addNotification({ title, text }) {
-  notifications.unshift({ title, text, time: new Date(), read: false });
+// kind + thread are optional: they give the notification a "View" button (messages, replies, alerts about an employee)
+function addNotification({ title, text, key, kind, thread }) {
+  if (key && notifications.some((n) => n.key === key)) return;          // never show the same one twice
+  notifications.unshift({ title, text, key, kind, thread, time: new Date(), read: false });
   renderNotifications();
 }
 window.addNotification = addNotification;
@@ -228,21 +231,60 @@ function renderNotifications() {
   notifList.textContent = "";
   notifications.forEach((n) => {
     const li = document.createElement("li");
+
+    const row = document.createElement("div");
+    row.className = "n-row";
     const t = document.createElement("span");
     t.className = "n-title";
     t.textContent = n.title;
+    const x = document.createElement("button");
+    x.type = "button";
+    x.className = "n-x";
+    x.setAttribute("aria-label", "Remove this notification");
+    x.title = "Remove";
+    x.textContent = "\u00d7";
+    x.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const i = notifications.indexOf(n);
+      if (i > -1) notifications.splice(i, 1);
+      renderNotifications();
+    });
+    row.append(t, x);
+
     const p = document.createElement("span");
     p.className = "n-text";
     p.textContent = n.text;
+
+    const foot = document.createElement("div");
+    foot.className = "n-foot";
     const time = document.createElement("span");
     time.className = "n-time";
     time.textContent = n.time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    li.append(t, p, time);
+    foot.appendChild(time);
+    if (n.kind && n.thread) {
+      const v = document.createElement("button");
+      v.type = "button";
+      v.className = "n-view";
+      v.textContent = n.kind === "message" ? "View message" : "View";
+      v.addEventListener("click", (e) => { e.stopPropagation(); closeDropdowns(); openNotification(n); });
+      foot.appendChild(v);
+    }
+
+    li.append(row, p, foot);
     notifList.appendChild(li);
   });
   notifEmpty.classList.toggle("hidden", notifications.length > 0);
+  notifClear.hidden = notifications.length === 0;
   bellBtn.classList.toggle("unread", notifications.some((n) => !n.read));
 }
+
+notifClear.addEventListener("click", (e) => {
+  e.stopPropagation();
+  notifications.length = 0;
+  renderNotifications();
+});
+// clicking inside the list (X, Clear all) should not close the bell panel
+document.querySelector(".notif").addEventListener("click", (e) => e.stopPropagation());
 
 function markAllRead() {
   notifications.forEach((n) => (n.read = true));
@@ -432,7 +474,7 @@ function fly(flyers, start, end, inPlace) {
    ===================================================== */
 const pages = document.querySelectorAll(".page");
 const navLinks = document.querySelectorAll(".nav-link");
-const parentOf = { sense: "services", nurture: "services", checkin: "services" };   // which nav link stays highlighted
+const parentOf = { sense: "services", nurture: "services", checkin: "services", tracker: "services" };   // which nav link stays highlighted
 
 function showView(name) {
   // employees fill in the Workday Check-In before they get into Mantra Sense
@@ -459,6 +501,7 @@ function showView(name) {
   }
   history.replaceState(null, "", "#" + name);
   closeDropdowns();
+  if (name === "tracker") trEnter();
 }
 
 document.querySelectorAll("[data-view]").forEach((a) => {
@@ -622,7 +665,7 @@ async function api(action, payload = {}) {
   if (action !== "icon" && data.v !== BACKEND_VERSION) throw new Error("outdated");
   return data;
 }
-const BACKEND_VERSION = 3;
+const BACKEND_VERSION = 7;
 
 const adminLink = document.getElementById("adminLink");
 const teamBtn   = document.getElementById("teamBtn");
@@ -634,15 +677,16 @@ const ASK_EVERY_LOGIN = true;
 function setupRole() {
   adminLink.hidden = currentUser.role !== "admin";
   teamBtn.hidden = !isStaff();
+  document.getElementById("tdClear").hidden = currentUser.role !== "admin";      // only Admin can reset messages
   if (currentUser.role === "employee") {
     api("sync").catch(() => {});                                        // puts their name on their row in the check-in sheet
     if (!ASK_EVERY_LOGIN) checkinStatus().then((done) => { if (done === true) checkinDone = true; });
     setInterval(recheckCheckin, 60000);                                 // notice an Admin reset while they are logged in
   }
-  if (isStaff()) {
-    pollNotifications();
-    setInterval(pollNotifications, 45000);
-  }
+  pollNotifications();                                                  // messages for employees, alerts for HR / Admin
+  setInterval(() => { if (!document.hidden) pollNotifications(); }, 10000);   // new messages and concerns show up within seconds
+  if (currentUser.role === "employee") api("recipients").then((d) => { trHR = d.people || []; }).catch(() => {});     // warm up the tracker
+  trLoad();
 }
 
 /* ---------- Workday Check-In ---------- */
@@ -755,6 +799,20 @@ function avatarFor(p) {
   }
   return av;
 }
+// the avatar, with a red "!" above it when the employee flagged a concern
+function avatarWithAlert(p) {
+  const wrap = document.createElement("span");
+  wrap.className = "tp-avwrap";
+  wrap.appendChild(avatarFor(p));
+  if (p.fl === "Concern") {
+    const bang = document.createElement("span");
+    bang.className = "tp-alert";
+    bang.title = "Flagged a concern";
+    bang.textContent = "!";
+    wrap.appendChild(bang);
+  }
+  return wrap;
+}
 
 let team = [];
 async function loadTeam() {
@@ -778,23 +836,28 @@ function renderTeam() {
   tpSub.textContent = summary;
   admCount.textContent = summary;
 
-  // side bar
+  // side bar list: click an employee to open their details
   tpList.textContent = "";
   team.forEach((p) => {
     const li = document.createElement("li");
+    li.tabIndex = 0;
+    li.setAttribute("role", "button");
+    li.setAttribute("aria-label", "Open " + p.name);
     const who = document.createElement("div");
     who.className = "tp-who";
     const name = document.createElement("span");
     name.className = "tp-name";
     name.textContent = p.name;
-    if (p.fl === "Concern") {
+    if (p.awaiting) {
       const t = document.createElement("span");
-      t.className = "tag-concern";
-      t.textContent = "Concern";
+      t.className = "tag-reply";
+      t.textContent = "New reply";
       name.appendChild(t);
     }
-    who.append(avatarFor(p), name);
+    who.append(avatarWithAlert(p), name);
     li.append(who, chip(p.wl, WL_LABELS), chip(p.rc, RC_LABELS));
+    li.addEventListener("click", () => openTeamDetail(p.username));
+    li.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openTeamDetail(p.username); } });
     tpList.appendChild(li);
   });
   tpEmpty.textContent = team.length ? "" : "No employees found.";
@@ -814,15 +877,24 @@ function renderTeam() {
     n.textContent = p.name;
     const f = document.createElement("span");
     if (p.fl === "Concern") { f.className = "tag-concern"; f.style.marginLeft = "0"; f.style.justifySelf = "start"; f.textContent = "Concern"; }
-    else f.textContent = p.fl || "–";
+    else f.textContent = p.fl === "Idle" ? "Active" : (p.fl || "–");
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "adm-reset";
+    btn.className = "adm-reset chk";
     btn.textContent = "Reset";
+    btn.title = "Reset " + p.name + "'s check-ins";
     armConfirm(btn, "Reset", "Sure?", () => resetData(p.username, p.name, btn));
-    row.append(n, chip(p.wl, WL_LABELS), chip(p.rc, RC_LABELS), f, btn);
+    const mbtn = document.createElement("button");
+    mbtn.type = "button";
+    mbtn.className = "adm-reset msg";
+    mbtn.textContent = "Reset";
+    mbtn.title = "Reset " + p.name + "'s messages";
+    armConfirm(mbtn, "Reset", "Sure?", () => resetMessages(p, mbtn));
+    row.append(n, chip(p.wl, WL_LABELS), chip(p.rc, RC_LABELS), f, btn, mbtn);
     admRows.appendChild(row);
   });
+
+  if (detailUser) renderDetail();
 }
 
 async function refreshTeam() {
@@ -840,6 +912,7 @@ async function refreshTeam() {
 
 /* side bar open / close */
 function setTeamPanel(open) {
+  if (!open) { teamPanel.classList.remove("detail"); detailUser = null; }
   teamPanel.classList.toggle("open", open);
   teamPanel.setAttribute("aria-hidden", String(!open));
   teamBtn.classList.toggle("open", open);
@@ -850,6 +923,166 @@ teamBtn.addEventListener("click", (e) => { e.stopPropagation(); closeDropdowns()
 document.getElementById("tpClose").addEventListener("click", () => setTeamPanel(false));
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") setTeamPanel(false); });
 setInterval(() => { if (teamPanel.classList.contains("open")) refreshTeam(); }, 60000);
+
+/* ---------- Team check-in: one employee (concern, resolve, messages) ---------- */
+let detailUser = null;                       // username of the employee being viewed
+const tdAv = document.getElementById("tdAv");
+const tdName = document.getElementById("tdName");
+const tdSub = document.getElementById("tdSub");
+const tdWl = document.getElementById("tdWl");
+const tdRc = document.getElementById("tdRc");
+const tdConcern = document.getElementById("tdConcern");
+const tdThread = document.getElementById("tdThread");
+const tdText = document.getElementById("tdText");
+const tdSend = document.getElementById("tdSend");
+const tdMsg = document.getElementById("tdMsg");
+const personOf = (u) => team.find((x) => x.username.toLowerCase() === String(u).toLowerCase());
+
+// chat bubbles; "mine" is the sender type that sits on the right
+// a bubble that appears the moment you press send (the real one replaces it when the server answers)
+function pendingBubble(box, text) {
+  const e = box.querySelector(".thread-empty");
+  if (e) e.remove();
+  const b = document.createElement("div");
+  b.className = "bubble me sending";
+  const t = document.createElement("span");
+  t.className = "b-text";
+  t.textContent = text;
+  b.appendChild(t);
+  box.appendChild(b);
+  box.scrollTop = box.scrollHeight;
+  return b;
+}
+function renderThread(box, msgs, mine) {
+  box.textContent = "";
+  if (!msgs.length) {
+    const e = document.createElement("p");
+    e.className = "thread-empty";
+    e.textContent = "No messages yet.";
+    box.appendChild(e);
+    return;
+  }
+  msgs.forEach((m) => {
+    const b = document.createElement("div");
+    b.className = "bubble " + (m.sender === mine ? "me" : "them");
+    if (m.sender !== mine) {
+      const n = document.createElement("span");
+      n.className = "b-name";
+      n.textContent = m.name;
+      b.appendChild(n);
+    }
+    const t = document.createElement("span");
+    t.className = "b-text";
+    t.textContent = m.text;
+    b.appendChild(t);
+    box.appendChild(b);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+
+function renderDetail() {
+  const p = personOf(detailUser);
+  if (!p) return;
+  tdAv.textContent = "";
+  tdAv.appendChild(avatarWithAlert(p));
+  tdName.textContent = p.name;
+  tdSub.textContent = p.fl === "Concern" ? "Flagged a concern" : "Status: " + (p.fl === "Idle" ? "Active" : (p.fl || "no check-in yet"));
+  tdWl.textContent = "";
+  tdRc.textContent = "";
+  const label = (text) => { const s = document.createElement("span"); s.textContent = text; return s; };
+  tdWl.append(chip(p.wl, WL_LABELS), label(levelOf(p.wl) ? WL_LABELS[levelOf(p.wl)] : "No check-ins yet"));
+  tdRc.append(chip(p.rc, RC_LABELS), label(levelOf(p.rc) ? RC_LABELS[levelOf(p.rc)] : "No check-ins yet"));
+  tdConcern.hidden = p.fl !== "Concern";
+}
+
+async function loadStaffThread(silent) {
+  if (!detailUser) return;
+  try {
+    const d = await api("thread", { with: detailUser });
+    const sig = d.messages.map((m) => m.id).join(",");
+    if (detailUser && !(silent && tdThread.dataset.sig === sig)) { renderThread(tdThread, d.messages, "staff"); tdThread.dataset.sig = sig; }
+  } catch (err) { console.warn("Messages could not be loaded:", err.message); }
+}
+
+function openTeamDetail(username) {
+  const p = personOf(username);
+  if (!p) return;
+  detailUser = p.username;
+  tdMsg.textContent = "";
+  tdText.value = "";
+  tdThread.textContent = "";
+  renderDetail();
+  teamPanel.classList.add("detail");
+  loadStaffThread();
+}
+// opened from a bell notification
+async function viewEmployee(username) {
+  if (!teamPanel.classList.contains("open")) setTeamPanel(true);
+  if (!personOf(username)) await refreshTeam();
+  openTeamDetail(username);
+}
+
+document.getElementById("tdBack").addEventListener("click", () => { teamPanel.classList.remove("detail"); detailUser = null; refreshTeam(); });
+document.getElementById("tdClose").addEventListener("click", () => setTeamPanel(false));
+
+document.getElementById("tdResolve").addEventListener("click", async () => {
+  const p = personOf(detailUser);
+  if (!p) return;
+  const btn = document.getElementById("tdResolve");
+  btn.disabled = true;
+  tdMsg.className = "td-msg";
+  try {
+    await api("resolve", { target: p.username });
+    p.fl = "Idle";                              // the red ! disappears
+    renderTeam();
+    tdMsg.textContent = "Marked as resolved.";
+  } catch (err) {
+    tdMsg.className = "td-msg bad";
+    tdMsg.textContent = "Couldn't mark it as resolved. Please try again.";
+  }
+  btn.disabled = false;
+});
+
+async function sendToEmployee() {
+  const text = tdText.value.trim();
+  if (!text || !detailUser) return;
+  const who = detailUser;
+  const bub = pendingBubble(tdThread, text);
+  tdText.value = "";
+  tdMsg.className = "td-msg";
+  try {
+    await api("send", { to: who, text });
+    tdMsg.textContent = "Sent. " + (personOf(who) || {}).name + " will see it in their notifications.";
+    const p = personOf(who);
+    if (p) { p.awaiting = false; renderTeam(); }
+    loadStaffThread();                           // swaps the grey bubble for the real one
+  } catch (err) {
+    bub.remove();
+    tdText.value = text;
+    tdMsg.className = "td-msg bad";
+    tdMsg.textContent = "Couldn't send the message. Please try again.";
+  }
+}
+tdSend.addEventListener("click", sendToEmployee);
+tdText.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendToEmployee(); } });
+setInterval(() => { if (detailUser && teamPanel.classList.contains("open")) loadStaffThread(); }, 15000);
+
+// Admin: clear this employee's conversation
+armConfirm(document.getElementById("tdClear"), "Clear messages", "Sure?", async () => {
+  const p = personOf(detailUser);
+  if (!p) return;
+  tdMsg.className = "td-msg";
+  try {
+    await api("clearMsgs", { target: p.username });
+    p.awaiting = false;
+    renderThread(tdThread, [], "staff");
+    renderTeam();
+    tdMsg.textContent = "Messages with " + p.name + " were cleared.";
+  } catch (err) {
+    tdMsg.className = "td-msg bad";
+    tdMsg.textContent = "Couldn't clear the messages. Please try again.";
+  }
+});
 
 /* ---------- Admin page: reset check-in data ---------- */
 // a button that needs a second click ("Sure?") within 3 seconds
@@ -869,13 +1102,29 @@ function armConfirm(btn, label, askLabel, action) {
   });
 }
 
+async function resetMessages(p, btn) {
+  admMsg.className = "adm-msg";
+  admMsg.textContent = "Clearing messages…";
+  if (btn) btn.disabled = true;
+  try {
+    await api("clearMsgs", { target: p.username });
+    admMsg.textContent = "Cleared the messages with " + p.name + ".";
+    await loadTeam();
+  } catch (err) {
+    console.warn("Clearing messages failed:", err);
+    admMsg.className = "adm-msg bad";
+    admMsg.textContent = "Couldn't clear the messages. Please try again.";
+    if (btn) btn.disabled = false;
+  }
+}
+
 async function resetData(target, label, btn) {
   admMsg.className = "adm-msg";
   admMsg.textContent = "Resetting…";
   if (btn) btn.disabled = true;
   try {
     const r = await api("reset", { target });
-    admMsg.textContent = target === "ALL" ? "Reset check-in data for " + r.count + " employees." : "Reset check-in data for " + label + ".";
+    admMsg.textContent = target === "ALL" ? "Reset the check-ins of " + r.count + " employees." : "Reset the check-ins of " + label + ".";
     await loadTeam();
   } catch (err) {
     console.warn("Reset failed:", err);
@@ -884,23 +1133,522 @@ async function resetData(target, label, btn) {
     if (btn) btn.disabled = false;
   }
 }
-armConfirm(document.getElementById("admResetAll"), "Reset all employees", "Click again to reset ALL", () => resetData("ALL", "all employees"));
+armConfirm(document.getElementById("admResetAll"), "Reset all check-ins", "Click again to reset ALL", () => resetData("ALL", "all employees"));
+armConfirm(document.getElementById("admClearMsgs"), "Reset all messages", "Click again to reset ALL messages", async () => {
+  admMsg.className = "adm-msg";
+  admMsg.textContent = "Clearing messages…";
+  try {
+    const r = await api("clearMsgs", { all: true });
+    admMsg.textContent = "Cleared " + r.count + " messages.";
+    await loadTeam();
+  } catch (err) {
+    admMsg.className = "adm-msg bad";
+    admMsg.textContent = "Couldn't clear the messages. Please try again.";
+  }
+});
 document.getElementById("admRefresh").addEventListener("click", refreshTeam);
 adminLink.addEventListener("click", () => refreshTeam());
 document.querySelectorAll("[data-view=admin]").forEach((a) => a.addEventListener("click", () => refreshTeam()));
 
-/* ---------- Notifications for Admin / HR (contact requests, concerns) ---------- */
+/* ---------- Notifications from the backend ---------- */
+// employees: messages from HR / Admin.   HR / Admin: contact requests, concerns, replies.
+function openNotification(n) {
+  if (!currentUser || !n.thread) return;
+  if (n.kind === "concern") { trPendingOpen = String(n.thread).replace(/^c:/, ""); showView("tracker"); return; }
+  if (currentUser.role === "employee") openMessages();
+  else viewEmployee(n.thread);
+}
+
 async function pollNotifications() {
-  if (!currentUser || !isStaff() || !ICON_API) return;
+  if (!currentUser || !ICON_API) return;
   const key = "mantraNotifSeen:" + currentUser.username.toLowerCase();
   let since = 0;
   try { since = Number(localStorage.getItem(key)) || 0; } catch (e) {}
-  if (!since) since = Date.now() - 24 * 3600 * 1000;               // first time: only the last day
+  if (!since) since = Date.now() - (isStaff() ? 1 : 7) * 24 * 3600 * 1000;      // first time: only recent ones
   try {
     const data = await api("notifs", { since });
-    (data.items || []).forEach((n) => addNotification({ title: n.title, text: n.text }));
+    (data.items || []).forEach((n) => addNotification({ title: n.title, text: n.text, key: "srv" + n.id, kind: n.kind, thread: n.thread }));
     try { localStorage.setItem(key, String(data.latest || since)); } catch (e) {}
+    if (currentUser.role === "employee" && (data.items || []).length && !msgModal.hidden) loadEmpThread();
   } catch (err) {
     console.warn("Notifications could not be loaded:", err.message);
   }
 }
+
+/* ---------- Employee: read and reply to messages ---------- */
+const msgModal = document.getElementById("msgModal");
+const mmThread = document.getElementById("mmThread");
+const mmText = document.getElementById("mmText");
+const mmNote = document.getElementById("mmNote");
+const mmSend = document.getElementById("mmSend");
+function setMmNote(text, bad) { mmNote.textContent = text || ""; mmNote.classList.toggle("bad", !!bad); }
+
+async function loadEmpThread(silent) {
+  try {
+    const d = await api("thread");
+    const sig = d.messages.map((m) => m.id).join(",");
+    if (!(silent && mmThread.dataset.sig === sig)) { renderThread(mmThread, d.messages, "employee"); mmThread.dataset.sig = sig; }
+  } catch (err) {
+    if (!silent) setMmNote("Couldn't load your messages.", true);
+  }
+}
+async function openMessages() {
+  mmText.value = "";
+  setMmNote("");
+  mmThread.textContent = "";
+  msgModal.hidden = false;
+  await loadEmpThread();
+  mmText.focus();
+}
+function closeMessages() { msgModal.hidden = true; }
+
+async function sendReply() {
+  const text = mmText.value.trim();
+  if (!text) return;
+  const bub = pendingBubble(mmThread, text);
+  mmText.value = "";
+  setMmNote("");
+  try {
+    await api("reply", { text });
+    setMmNote("Sent. HR / Admin can see your reply.");
+    loadEmpThread();
+  } catch (err) {
+    bub.remove();
+    mmText.value = text;
+    setMmNote("Couldn't send your reply. Please try again.", true);
+  }
+}
+mmSend.addEventListener("click", sendReply);
+document.getElementById("mmClose").addEventListener("click", closeMessages);
+msgModal.addEventListener("click", (e) => { if (e.target === msgModal) closeMessages(); });
+mmText.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendReply(); } });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !msgModal.hidden) closeMessages(); });
+
+
+/* =====================================================
+   WORK INTERVENTION TRACKER
+   Employee: write a concern to HR (one open concern at a time) + their history.
+   HR: concerns addressed to them; opening an Active one makes it Ongoing; close -> Closed.
+   Admin: sees everything without changing statuses; can close and reset.
+   ===================================================== */
+const $ = (id) => document.getElementById(id);
+let trPendingOpen = null;          // a concern to open as soon as the page is ready (from a notification)
+let trItems = [];
+let trTab = "";
+let trHR = null;                   // HR people an employee can address
+let trCur = null;                  // concern shown in the detail view
+let trCurId = null;
+let trLoaded = false;
+let trStamp = "";
+const trSel = { to: [], cc: [], bcc: [] };
+
+function trNote(text, bad) { const m = $("trMsg"); m.textContent = text || ""; m.classList.toggle("bad", !!bad); }
+const trWhen = (ts) => { const d = new Date(ts); return d.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" }) + ", " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); };
+const trOpenOnes = () => trItems.filter((c) => c.status !== "Closed");
+const trIsEmp = () => currentUser && currentUser.role === "employee";
+
+// keeps only simple formatting from the editor (no scripts, no odd attributes)
+const TR_SKIP = new Set(["SCRIPT", "STYLE", "IFRAME", "OBJECT", "EMBED", "TEXTAREA", "SVG", "NOSCRIPT"]);
+const TR_OK = new Set(["B", "STRONG", "I", "EM", "U", "UL", "OL", "LI", "BR", "DIV", "P", "H3", "A", "SPAN"]);
+function cleanHtml(html) {
+  const doc = new DOMParser().parseFromString("<body>" + String(html || "") + "</body>", "text/html");
+  const out = document.createDocumentFragment();
+  (function walk(node, into) {
+    node.childNodes.forEach((ch) => {
+      if (ch.nodeType === 3) { into.appendChild(document.createTextNode(ch.nodeValue)); return; }
+      if (ch.nodeType !== 1 || TR_SKIP.has(ch.tagName)) return;
+      if (!TR_OK.has(ch.tagName)) { walk(ch, into); return; }
+      const el = document.createElement(ch.tagName.toLowerCase());
+      if (ch.tagName === "A") {
+        const href = ch.getAttribute("href") || "";
+        if (/^https?:\/\//i.test(href)) { el.href = href; el.target = "_blank"; el.rel = "noopener noreferrer"; }
+      }
+      const st = ch.getAttribute("style") || "";
+      const al = /text-align:\s*(left|center|right|justify)/i.exec(st);
+      if (al && /^(DIV|P|H3|LI)$/.test(ch.tagName)) el.style.textAlign = al[1].toLowerCase();
+      walk(ch, el);
+      into.appendChild(el);
+    });
+  })(doc.body, out);
+  return out;
+}
+function cleanHtmlString(html) { const d = document.createElement("div"); d.appendChild(cleanHtml(html)); return d.innerHTML; }
+
+/* ----- recipients (To / Cc / Bcc) ----- */
+function trRenderRecipients() {
+  document.querySelectorAll(".tr-to").forEach((box) => {
+    const f = box.dataset.f;
+    const chips = box.querySelector(".tr-chips");
+    chips.textContent = "";
+    trSel[f].forEach((p) => {
+      const c = document.createElement("span");
+      c.className = "tr-chip";
+      c.textContent = p.name;
+      const x = document.createElement("button");
+      x.type = "button"; x.textContent = "\u00d7"; x.setAttribute("aria-label", "Remove " + p.name);
+      x.addEventListener("click", () => { trSel[f] = trSel[f].filter((q) => q.username !== p.username); trRenderRecipients(); });
+      c.appendChild(x);
+      chips.appendChild(c);
+    });
+    box.classList.toggle("empty", !trSel[f].length);
+    const menu = box.querySelector(".tr-menu");
+    menu.textContent = "";
+    const taken = new Set([].concat(trSel.to, trSel.cc, trSel.bcc).map((p) => p.username));
+    const free = (trHR || []).filter((p) => !taken.has(p.username));
+    if (!free.length) {
+      const e = document.createElement("span");
+      e.className = "tr-menu-empty";
+      e.textContent = trHR && trHR.length ? "Everyone is already added" : "No HR accounts found";
+      menu.appendChild(e);
+    }
+    free.forEach((p) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = p.name;
+      b.addEventListener("click", () => { trSel[f].push(p); menu.hidden = true; trRenderRecipients(); });
+      menu.appendChild(b);
+    });
+  });
+}
+document.querySelectorAll(".tr-to").forEach((box) => {
+  box.querySelector(".tr-add").addEventListener("click", (e) => {
+    e.stopPropagation();
+    const menu = box.querySelector(".tr-menu");
+    const was = menu.hidden;
+    document.querySelectorAll(".tr-menu").forEach((m) => (m.hidden = true));
+    menu.hidden = !was;
+  });
+});
+document.addEventListener("click", () => document.querySelectorAll(".tr-menu").forEach((m) => (m.hidden = true)));
+document.querySelectorAll("[data-show]").forEach((b) => b.addEventListener("click", () => {
+  $(b.dataset.show === "cc" ? "trCcRow" : "trBccRow").hidden = false;
+  b.hidden = true;
+}));
+
+/* ----- pills, checkboxes, editor ----- */
+["trCategory", "trPriority"].forEach((id) => {
+  const box = $(id);
+  box.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    const on = b.classList.contains("on");
+    box.querySelectorAll("button").forEach((x) => x.classList.remove("on"));
+    if (!on) b.classList.add("on");
+  }));
+});
+const trBody = $("trBody");
+document.querySelectorAll("#trTools button").forEach((b) => b.addEventListener("mousedown", (e) => e.preventDefault()));
+document.querySelectorAll("#trTools [data-cmd]").forEach((b) => b.addEventListener("click", () => {
+  trBody.focus();
+  document.execCommand(b.dataset.cmd, false, null);
+}));
+$("trBlock").addEventListener("change", (e) => {
+  trBody.focus();
+  document.execCommand("formatBlock", false, e.target.value === "h3" ? "<h3>" : "<p>");
+});
+document.querySelector('#trTools [data-act="link"]').addEventListener("click", () => {
+  const url = window.prompt("Link address (https://…)");
+  if (!url || !/^https?:\/\//i.test(url.trim())) return;
+  trBody.focus();
+  document.execCommand("createLink", false, url.trim());
+});
+const trEmoji = $("trEmoji");
+["😊", "🙂", "😟", "😔", "😴", "💪", "🙏", "👍", "❤️", "🌿", "☕", "⏰"].forEach((em) => {
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = em;
+  b.addEventListener("mousedown", (e) => e.preventDefault());
+  b.addEventListener("click", () => { trBody.focus(); document.execCommand("insertText", false, em); trEmoji.hidden = true; });
+  trEmoji.appendChild(b);
+});
+document.querySelector('#trTools [data-act="emoji"]').addEventListener("click", (e) => { e.stopPropagation(); trEmoji.hidden = !trEmoji.hidden; });
+document.addEventListener("click", () => { trEmoji.hidden = true; });
+trBody.addEventListener("paste", (e) => {                       // paste as plain text
+  e.preventDefault();
+  document.execCommand("insertText", false, (e.clipboardData || window.clipboardData).getData("text/plain"));
+});
+
+function trFormNote(text, bad) { const n = $("trFormNote"); n.textContent = text || ""; n.classList.toggle("bad", !!bad); }
+function trResetForm() {
+  trSel.to = []; trSel.cc = []; trSel.bcc = [];
+  trRenderRecipients();
+  $("trSubject").value = "";
+  trBody.innerHTML = "";
+  document.querySelectorAll("#trCategory .on, #trPriority .on").forEach((b) => b.classList.remove("on"));
+  document.querySelectorAll("#trSupport input").forEach((c) => (c.checked = false));
+  $("trCcRow").hidden = true; $("trBccRow").hidden = true;
+  document.querySelectorAll("[data-show]").forEach((b) => (b.hidden = false));
+  trFormNote("");
+}
+
+$("trSend").addEventListener("click", async () => {
+  const subject = $("trSubject").value.trim();
+  const body = cleanHtmlString(trBody.innerHTML);
+  const plain = (trBody.textContent || "").trim();
+  if (!trSel.to.length) return trFormNote("Choose who to send this to.", true);
+  if (!subject) return trFormNote("Add a subject.", true);
+  if (!plain) return trFormNote("Describe your concern first.", true);
+  const pick = (id) => { const b = document.querySelector("#" + id + " .on"); return b ? b.dataset.v : ""; };
+  const btn = $("trSend");
+  btn.disabled = true;
+  trFormNote("Sending…");
+  try {
+    const sent = await api("cSubmit", {
+      to: trSel.to.map((p) => p.username), cc: trSel.cc.map((p) => p.username), bcc: trSel.bcc.map((p) => p.username),
+      subject, body, category: pick("trCategory"), priority: pick("trPriority"),
+      support: [...document.querySelectorAll("#trSupport input:checked")].map((c) => c.value),
+    });
+    trResetForm();
+    trNote("Your concern was sent. HR has been notified.");
+    if (sent.item) { trApply(sent.item); trLoaded = true; } else await trLoad();
+    trTab = "current";
+    trRender();
+  } catch (err) {
+    trFormNote(err.message === "open" ? "You already have an open concern. HR or Admin needs to close it before you can send another." :
+      err.message === "outdated" ? "The backend script is out of date. Please deploy the newest version." : (err.message && err.message.length < 80 ? err.message : "Couldn't send. Please try again."), true);
+  }
+  btn.disabled = false;
+});
+
+/* ----- loading and the tabs ----- */
+async function trLoad() {
+  try {
+    const d = await api("cList");
+    trItems = d.items || [];
+    trLoaded = true;
+    return true;
+  } catch (err) {
+    trNote(err.message === "outdated" ? "The backend script is out of date. Please deploy the newest version." : "Couldn't load concerns right now.", true);
+    return false;
+  }
+}
+
+function trTabsFor() {
+  if (trIsEmp()) return [{ k: "current", t: "My Concern" }, { k: "history", t: "History (" + trItems.filter((c) => c.status === "Closed").length + ")" }];
+  const open = trOpenOnes().length;
+  return [{ k: "open", t: "Open (" + open + ")" }, { k: "history", t: "History (" + (trItems.length - open) + ")" }];
+}
+
+function trRender() {
+  const tabs = $("trTabs");
+  tabs.textContent = "";
+  const list = trTabsFor();
+  if (!list.some((x) => x.k === trTab)) trTab = list[0].k;
+  list.forEach((x) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = x.t; b.setAttribute("role", "tab");
+    b.className = x.k === trTab ? "on" : "";
+    b.addEventListener("click", () => { trTab = x.k; trNote(""); trRender(); });
+    tabs.appendChild(b);
+  });
+  $("trForm").hidden = true; $("trList").hidden = true; $("trDetail").hidden = true;
+
+  if (trIsEmp() && trTab === "current") {
+    const open = trOpenOnes()[0];
+    if (open) trShow(open.id, false);
+    else { $("trForm").hidden = false; trRenderRecipients(); }
+    return;
+  }
+  const rows = trTab === "history" ? trItems.filter((c) => c.status === "Closed") : trOpenOnes();
+  trRenderList(rows);
+}
+
+function trRenderList(rows) {
+  const box = $("trList");
+  box.hidden = false;
+  box.textContent = "";
+  if (!rows.length) {
+    const e = document.createElement("p");
+    e.className = "adm-empty";
+    e.textContent = trTab === "history" ? "Nothing in the history yet." : trIsEmp() ? "You have no open concern." : "No open concerns right now.";
+    box.appendChild(e);
+    return;
+  }
+  const head = document.createElement("div");
+  head.className = "tr-row-item tr-th";
+  head.innerHTML = "<span>" + (trIsEmp() ? "To" : "Employee") + "</span><span>Subject</span><span>Priority</span><span>Status</span><span>Updated</span>";
+  box.appendChild(head);
+  rows.forEach((c) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "tr-row-item";
+    const who = document.createElement("span");
+    who.className = "tr-who";
+    who.textContent = trIsEmp() ? c.to.map((p) => p.name).join(", ") : c.name;
+    const sub = document.createElement("span");
+    sub.className = "tr-sub";
+    sub.textContent = c.subject;
+    const pr = document.createElement("span");
+    pr.textContent = c.priority || "–";
+    const st = document.createElement("span");
+    st.className = "tr-status st-" + c.status.toLowerCase();
+    st.textContent = c.status;
+    const up = document.createElement("span");
+    up.className = "tr-date";
+    up.textContent = trWhen(c.updated);
+    b.append(who, sub, pr, st, up);
+    b.addEventListener("click", () => trShow(c.id, true));
+    box.appendChild(b);
+  });
+}
+
+/* ----- one concern ----- */
+function trPaint(c, messages, canGoBack, silent) {
+  $("trForm").hidden = true; $("trList").hidden = true;
+  $("trDetail").hidden = false;
+  $("trBack").hidden = !canGoBack;
+  $("trdSubject").textContent = c.subject;
+  $("trdMeta").textContent = (trIsEmp() ? "" : "From " + c.name + " \u00b7 ") + "To " + c.to.map((p) => p.name).join(", ") + " \u00b7 " + trWhen(c.created);
+  const st = $("trdStatus");
+  st.textContent = c.status;
+  st.className = "tr-status st-" + c.status.toLowerCase();
+  const tags = $("trdTags");
+  tags.textContent = "";
+  [c.category, c.priority && c.priority + " priority"].concat(c.support).filter(Boolean).forEach((t) => {
+    const s = document.createElement("span");
+    s.textContent = t;
+    tags.appendChild(s);
+  });
+  const body = $("trdBody");
+  body.textContent = "";
+  body.appendChild(cleanHtml(c.body));
+  const th = $("trdThread");
+  if (messages) {
+    const sig = messages.map((m) => m.id).join(",");
+    if (th.dataset.sig !== sig || !silent) { renderThread(th, messages, trIsEmp() ? "employee" : "staff"); th.dataset.sig = sig; }
+  } else { th.textContent = ""; th.dataset.sig = ""; const l = document.createElement("p"); l.className = "thread-empty"; l.textContent = "Loading…"; th.appendChild(l); }
+  const closed = c.status === "Closed";
+  $("trdCompose").hidden = closed;
+  if (!silent) $("trdText").value = "";
+  $("trdClose").hidden = trIsEmp() || closed;
+  $("trdReset").hidden = !(currentUser && currentUser.role === "admin");
+  $("trdNote").textContent = closed ? "Closed" + (c.closedBy ? " by " + c.closedBy : "") + "." : "";
+  $("trdNote").classList.remove("bad");
+}
+function trTabCounts() {
+  const tabs = trTabsFor();
+  $("trTabs").querySelectorAll("button").forEach((b, n) => { if (tabs[n]) b.textContent = tabs[n].t; });
+}
+function trApply(c) {                       // keep the list in step with what the server just said
+  const i = trItems.findIndex((x) => x.id === c.id);
+  if (i > -1) trItems[i] = Object.assign({}, trItems[i], c); else trItems.unshift(c);
+  trTabCounts();
+}
+async function trShow(id, canGoBack, silent) {
+  trCurId = id;
+  const known = trItems.find((x) => x.id === id);
+  if (known && !silent) trPaint(known, null, canGoBack, false);       // show the header at once, the replies follow
+  try {
+    const d = await api("cGet", { id });
+    if (trCurId !== id) return;
+    trCur = d.concern;
+    trApply(d.concern);
+    trPaint(d.concern, d.messages, canGoBack, silent);
+  } catch (err) {
+    if (!silent) { trNote("Couldn't open that concern.", true); trRender(); }
+  }
+}
+$("trBack").addEventListener("click", () => { trRender(); });
+
+$("trdSend").addEventListener("click", async () => {
+  const text = $("trdText").value.trim();
+  if (!text || !trCur) return;
+  const id = trCur.id;
+  // show the reply straight away; the server answer replaces it
+  const th = $("trdThread");
+  th.querySelector(".thread-empty") && th.querySelector(".thread-empty").remove();
+  const bub = document.createElement("div");
+  bub.className = "bubble me sending";
+  const t = document.createElement("span"); t.className = "b-text"; t.textContent = text;
+  bub.appendChild(t); th.appendChild(bub); th.scrollTop = th.scrollHeight;
+  $("trdText").value = "";
+  try {
+    const d = await api("cReply", { id, text });
+    trCur = d.concern; trApply(d.concern);
+    if (trCurId === id) trPaint(d.concern, d.messages, !$("trBack").hidden, true);
+  } catch (err) {
+    bub.remove();
+    $("trdText").value = text;
+    $("trdNote").textContent = err.message === "closed" ? "This concern is already closed." : "Couldn't send the reply.";
+    $("trdNote").classList.add("bad");
+  }
+});
+$("trdText").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("trdSend").click(); } });
+armConfirm($("trdClose"), "Close concern", "Sure? Click again", async () => {
+  try {
+    await api("cClose", { id: trCur.id });
+    await trLoad();
+    trNote("Concern closed. It is now in the History.");
+    trTab = "history";
+    trRender();
+  } catch (err) { $("trdNote").textContent = "Couldn't close the concern."; $("trdNote").classList.add("bad"); }
+});
+armConfirm($("trdReset"), "Reset concern", "Sure? Click again", async () => {
+  try {
+    await api("cReset", { id: trCur.id });
+    await trLoad();
+    trNote("Concern deleted.");
+    trRender();
+  } catch (err) { $("trdNote").textContent = "Couldn't reset the concern."; $("trdNote").classList.add("bad"); }
+});
+armConfirm($("trResetAll"), "Reset all concerns", "Click again to reset ALL", async () => {
+  try {
+    const r = await api("cReset", { all: true });
+    await trLoad();
+    trNote("Deleted " + r.count + " concern" + (r.count === 1 ? "" : "s") + ". Employees can send new ones.");
+    trRender();
+  } catch (err) { trNote("Couldn't reset the concerns.", true); }
+});
+$("trRefresh").addEventListener("click", async () => { trNote(""); await trLoad(); trRender(); });
+
+async function trEnter() {
+  if (!currentUser) return;
+  const emp = trIsEmp();
+  $("trTitle").textContent = emp ? "Report a Workload Concern" : "Work Intervention Tracker";
+  $("trSub").innerHTML = emp ? "Send a message to our HR and Employee Support Team.<br>Your concern will be reviewed and handled with care."
+    : "Review concerns from your employees, reply, and close them when they are handled.<br>" + (currentUser.role === "admin" ? "As Admin you can view everything without changing a status." : "Opening a new concern sets it to Ongoing.");
+  $("trResetAll").hidden = currentUser.role !== "admin";
+  trNote("");
+  if (emp && !trHR) {
+    try { trHR = (await api("recipients")).people || []; } catch (e) { trHR = []; }
+    trRenderRecipients();
+  }
+  if (trLoaded && !trPendingOpen) trRender();                       // show what we already have, instantly
+  else if (!trLoaded) { $("trList").hidden = false; $("trList").innerHTML = '<p class="adm-empty">Loading…</p>'; $("trForm").hidden = true; $("trDetail").hidden = true; }
+  const ok = await trLoad();
+  if (!ok) return;
+  if (trPendingOpen) {
+    const id = trPendingOpen; trPendingOpen = null;
+    const c = trItems.find((x) => x.id === id);
+    if (c) { trTab = emp ? (c.status === "Closed" ? "history" : "current") : (c.status === "Closed" ? "history" : "open"); trRender(); if (!emp || c.status === "Closed") trShow(id, true); return; }
+  }
+  trSoftRefresh();
+}
+// re-draw after fresh data without throwing away what the person is doing (typing a reply, reading a concern)
+function trSoftRefresh() {
+  if (!$("trDetail").hidden && trCurId) { trTabCounts(); trShow(trCurId, !$("trBack").hidden, true); return; }
+  if (!$("trForm").hidden && !trOpenOnes().length) { trTabCounts(); return; }
+  trRender();
+}
+
+/* =====================================================
+   LIVE UPDATES: while a conversation is on screen, check for news every few seconds
+   (a tiny "anything new?" call; the full data is only fetched when something changed)
+   ===================================================== */
+let rtBusy = false;
+async function rtTick() {
+  if (rtBusy || document.hidden || !currentUser || !ICON_API) return;
+  rtBusy = true;
+  try {
+    const onTracker = $("tracker").classList.contains("active");
+    if (onTracker) {
+      const p = await api("cPulse");
+      if (p.stamp !== trStamp) {
+        const first = trStamp === "";
+        trStamp = p.stamp;
+        if (!first || !trLoaded) { if (await trLoad()) trSoftRefresh(); }
+      }
+    }
+    if (currentUser.role === "employee" && !msgModal.hidden) await loadEmpThread(true);
+    if (isStaff() && teamPanel.classList.contains("detail") && detailUser) await loadStaffThread(true);
+  } catch (e) { /* offline or busy: try again next time */ }
+  rtBusy = false;
+}
+setInterval(rtTick, 4000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { rtTick(); pollNotifications(); } });

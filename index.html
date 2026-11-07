@@ -46,11 +46,11 @@
         <svg class="bg" viewBox="0 0 1920 1080" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <defs>
     <linearGradient id="bgSky" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#fcdcb6"/><stop offset="0.45" stop-color="#fbe3c4"/>
-      <stop offset="0.6" stop-color="#f1d3c6"/><stop offset="1" stop-color="#f6dccf"/>
+      <stop offset="0" stop-color="#fde6cf"/><stop offset="0.5" stop-color="#fce1cb"/>
+      <stop offset="1" stop-color="#fbd6c3"/>
     </linearGradient>
     <radialGradient id="bgGlow" cx="0.22" cy="0.3" r="0.45">
-      <stop offset="0" stop-color="#fdeab8" stop-opacity="0.95"/><stop offset="1" stop-color="#fdeab8" stop-opacity="0"/>
+      <stop offset="0" stop-color="#fdeec8" stop-opacity="0.7"/><stop offset="1" stop-color="#fdeab8" stop-opacity="0"/>
     </radialGradient>
     <linearGradient id="bgGlass" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#f7dccf"/><stop offset="1" stop-color="#fbe3d0"/>
@@ -70,6 +70,14 @@
     <path id="fxPetal" d="M0,0 C8,-6 16,-2 18,6 C10,10 2,8 0,0Z"/>
     <path id="fxHeart" d="M0,10 C-14,0 -11,-12 -5,-12 C-2,-12 0,-9 0,-7 C0,-9 2,-12 5,-12 C11,-12 14,0 0,10Z"/>
     <path id="fxLotus" d="M18,66 C42,66 64,90 72,128 C46,130 22,106 18,66Z M142,66 C118,66 96,90 88,128 C114,130 138,106 142,66Z M44,34 C66,46 78,78 78,124 C54,114 36,78 44,34Z M116,34 C94,46 82,78 82,124 C106,114 124,78 116,34Z M80,20 C100,44 102,90 80,128 C58,90 60,44 80,20Z M28,128 C52,146 108,146 132,128 C112,138 92,141 80,141 C68,141 48,138 28,128Z"/>
+  <mask id="mMask" maskUnits="userSpaceOnUse" x="-130" y="-180" width="260" height="200"><rect x="-130" y="-180" width="260" height="200" fill="#fff"/>
+<g fill="#000"><polygon points="-110,-40 -42,-48 -110,-62"/><polygon points="-110,-78 -44,-74 -104,-98"/><polygon points="-96,-112 -34,-96 -70,-128"/>
+<polygon points="110,-40 42,-48 110,-62"/><polygon points="110,-78 44,-74 104,-98"/><polygon points="96,-112 34,-96 70,-128"/></g></mask>
+<g id="mLeaf"><path mask="url(#mMask)" d="M0,0 C-70,-10 -95,-70 -60,-115 C-30,-150 -5,-130 0,-105 C5,-130 30,-150 60,-115 C95,-70 70,-10 0,0Z" fill="currentColor"/>
+<path mask="url(#mMask)" d="M0,0 C-70,-10 -95,-70 -60,-115 C-30,-150 -5,-130 0,-105 C-4,-60 -4,-30 0,0Z" fill="#000" opacity=".12"/>
+<path d="M0,-2 L0,-104 M0,-30 L-40,-52 M0,-30 L40,-52 M0,-62 L-46,-90 M0,-62 L46,-90" stroke="#e9f0cf" stroke-width="1.6" fill="none" opacity=".55"/></g>
+<g id="rLeaf"><path d="M0,0 C14,-22 15,-64 0,-104 C-15,-64 -14,-22 0,0Z" fill="currentColor"/><path d="M0,-4 L0,-96" stroke="#e5ebc4" stroke-width="1.4" opacity=".6"/><path d="M0,-26 L8,-38 M0,-26 L-8,-38 M0,-48 L9,-60 M0,-48 L-9,-60 M0,-70 L7,-80 M0,-70 L-7,-80" stroke="#e5ebc4" stroke-width="1" opacity=".5"/></g>
+  <g id="oLeaf"><path d="M0,0 C30,-20 38,-66 0,-118 C-38,-66 -30,-20 0,0Z" fill="#8d9a62"/><path d="M0,0 C30,-20 38,-66 0,-118 C8,-70 6,-26 0,0Z" fill="#76844f"/><path d="M0,-4 L0,-108 M0,-28 L14,-46 M0,-28 L-14,-46 M0,-54 L17,-76 M0,-54 L-17,-76 M0,-80 L11,-96 M0,-80 L-11,-96" stroke="#c9d1a0" stroke-width="1.6" stroke-linecap="round" fill="none" opacity=".7"/></g>
   <filter id="bgBlur"><feGaussianBlur stdDeviation="9"/></filter>
     <filter id="bgSoft"><feGaussianBlur stdDeviation="2.5"/></filter>
     <clipPath id="bgBanner"><rect x="0" y="115" width="1920" height="573"/></clipPath>
@@ -100,147 +108,120 @@
       <g transform="translate(170,205)"><ellipse rx="95" ry="22"/><ellipse cx="-40" cy="-16" rx="48" ry="26"/><ellipse cx="22" cy="-24" rx="56" ry="30"/></g>
       <g transform="translate(610,330)" opacity=".8"><ellipse rx="75" ry="17"/><ellipse cx="-26" cy="-12" rx="36" ry="20"/><ellipse cx="22" cy="-17" rx="42" ry="22"/></g>
     </g>
-    <!-- skyline (left) -->
-    <g fill="#ecc7b8" opacity="0.85">
-      <rect x="100" y="500" width="95" height="200"/>
-      <rect x="235" y="470" width="68" height="220"/>
-      <path d="M283,470 L292,442 L318,455 L332,495 L332,690 L283,690Z"/>
-      <rect x="326" y="552" width="73" height="140"/>
-      <rect x="313" y="618" width="142" height="80"/>
-      <rect x="414" y="586" width="78" height="110"/>
-      <rect x="498" y="541" width="46" height="150"/>
-      <rect x="558" y="530" width="92" height="160"/>
-      <path d="M619,432 L664,402 L664,380 L670,380 L674,306 L678,380 L682,402 L715,408 L728,432 L728,690 L619,690Z"/>
+    <!-- faint skyline, right -->
+    <g fill="#f0c1ad" opacity=".6" filter="url(#bgSoft)">
+      <rect x="1040" y="470" width="70" height="200"/><rect x="1130" y="420" width="55" height="250"/>
+      <rect x="1215" y="520" width="80" height="150"/><rect x="1330" y="330" width="95" height="340"/>
+      <rect x="1450" y="400" width="60" height="270"/><rect x="1530" y="260" width="120" height="410"/>
+      <rect x="1670" y="350" width="70" height="320"/><rect x="1760" y="190" width="110" height="480"/>
     </g>
-    <g fill="#f4d9cb" opacity="0.8">
-      <rect x="352" y="580" width="12" height="60"/>
-      <rect x="580" y="560" width="60" height="6"/><rect x="580" y="575" width="60" height="6"/><rect x="580" y="590" width="60" height="6"/>
+    <g fill="#f4d3c3" opacity=".5" filter="url(#bgSoft)">
+      <rect x="640" y="520" width="90" height="150"/><rect x="760" y="470" width="60" height="200"/><rect x="880" y="540" width="100" height="130"/>
     </g>
-
-    <!-- wall / window frame -->
-    <rect x="858" y="115" width="165" height="575" fill="#e8c8bb"/>
-    <rect x="858" y="115" width="38" height="575" fill="#dbb6a8"/>
-    <rect x="1018" y="115" width="56" height="575" fill="#f6e1d8"/>
-    <rect x="1070" y="115" width="850" height="435" fill="url(#bgGlass)"/>
-
-    <!-- city seen through window -->
-    <g fill="#efcdbf" opacity="0.9">
-      <rect x="1095" y="372" width="55" height="175"/>
-      <rect x="1395" y="345" width="80" height="205"/>
-      <rect x="1230" y="440" width="70" height="110"/>
-      <rect x="1310" y="395" width="55" height="155"/>
-      <rect x="1645" y="390" width="40" height="160"/>
-      <rect x="1705" y="400" width="45" height="150"/>
-      <rect x="1760" y="400" width="80" height="150"/>
-      <rect x="1820" y="270" width="100" height="280"/>
-      <rect x="1535" y="460" width="70" height="90"/>
+    <circle cx="1480" cy="230" r="320" fill="url(#bgSun)" opacity=".7"/>
+    <g class="fx-rays" fill="#fff6dc" opacity=".18"><polygon points="1500,115 900,688 1200,688"/><polygon points="1560,115 1350,688 1560,688"/></g>
+    <!-- soft pink hills, left -->
+    <path d="M0,330 C140,350 300,470 520,540 C700,596 900,640 1100,688 L0,688Z" fill="#fbcfc4" opacity=".55"/>
+    <path d="M0,420 C180,430 330,520 560,580 C760,630 980,660 1200,688 L0,688Z" fill="#f9c4b8" opacity=".45"/>
+    <path d="M0,610 C260,540 620,600 980,650 C1100,666 1180,678 1260,688 L0,688Z" fill="#fdf3e8"/>
+    <path d="M0,640 C300,596 640,640 920,672 L920,688 L0,688Z" fill="#fbe9dc" opacity=".8"/>
+    <ellipse cx="1480" cy="662" rx="520" ry="40" fill="#f7c9b0" opacity=".7"/>
+    <!-- monstera in a pot -->
+    <g transform="translate(-60,0)">
+      <g fill="none" stroke="#6f8b5d" stroke-width="5" stroke-linecap="round"><path d="M1110,628 C1100,590 1070,545 1050,515"/><path d="M1116,628 C1118,570 1122,520 1130,470"/><path d="M1122,628 C1140,590 1165,550 1190,525"/><path d="M1108,630 C1090,610 1070,595 1052,585"/><path d="M1124,630 C1145,612 1170,600 1198,596"/></g>
+      <g class="fx-sway" style="animation-duration:6.5s;animation-delay:0s"><g transform="translate(1050,515) rotate(-38) scale(1.05)" style="color:#7b9a67"><use href="#mLeaf"/></g></g>
+      <g class="fx-sway" style="animation-duration:7.5s;animation-delay:-2s"><g transform="translate(1130,470) rotate(6) scale(1.25)" style="color:#8aa874"><use href="#mLeaf"/></g></g>
+      <g class="fx-sway" style="animation-duration:7s;animation-delay:-1s"><g transform="translate(1190,525) rotate(48) scale(1.05)" style="color:#6f8f5c"><use href="#mLeaf"/></g></g>
+      <g class="fx-sway" style="animation-duration:6s;animation-delay:-3s"><g transform="translate(1052,585) rotate(-78) scale(0.8)" style="color:#86a371"><use href="#mLeaf"/></g></g>
+      <g class="fx-sway" style="animation-duration:8s;animation-delay:-4s"><g transform="translate(1198,596) rotate(82) scale(0.78)" style="color:#7d9c69"><use href="#mLeaf"/></g></g>
+      <path d="M1066,620 L1160,620 L1150,672 L1076,672Z" fill="#e6b797"/>
+      <path d="M1058,614 L1168,614 L1168,628 L1058,628Z" fill="#d9a584"/>
+      <path d="M1066,640 L1160,640" stroke="#d29c7a" stroke-width="2" opacity=".6"/>
     </g>
-    <ellipse cx="1320" cy="500" rx="85" ry="55" fill="#e0b5a3" opacity="0.65" filter="url(#bgBlur)"/>
-
-    <!-- sun -->
-    <circle cx="1570" cy="262" r="300" fill="url(#bgSun)"/>
-    <circle class="fx-breathe" cx="1570" cy="262" r="52" fill="#fff2c8" opacity=".92"/>
+    <!-- stacked stones -->
+    <g transform="translate(1370,670) scale(.9) translate(-1370,-670) translate(-30,0)">
+      <ellipse cx="1370" cy="670" rx="120" ry="10" fill="#d9a98e" opacity=".55"/>
+      <path d="M1272,664 C1266,622 1306,596 1372,596 C1442,596 1478,624 1468,664 C1420,678 1320,678 1272,664Z" fill="#a39086"/>
+      <path d="M1296,622 C1318,606 1430,604 1452,624 C1410,636 1334,636 1296,622Z" fill="#c2b0a5" opacity=".6"/>
+      <path d="M1296,552 C1294,590 1306,600 1372,600 C1430,600 1448,588 1444,566 C1430,544 1316,540 1296,552Z" fill="#b5a398"/>
+      <path d="M1320,566 C1340,556 1410,556 1430,568 C1400,578 1346,578 1320,566Z" fill="#d2c2b8" opacity=".65"/>
+      <path d="M1318,520 C1316,552 1326,560 1376,560 C1420,560 1432,550 1428,534 C1414,512 1334,508 1318,520Z" fill="#a8958b"/>
+      <path d="M1338,530 C1354,522 1396,522 1410,532 C1390,540 1356,540 1338,530Z" fill="#c9b9ae" opacity=".6"/>
+      <g fill="#8c7a70" opacity=".5"><circle cx="1330" cy="640" r="3"/><circle cx="1400" cy="650" r="2.5"/><circle cx="1420" cy="636" r="2"/><circle cx="1360" cy="578" r="2"/><circle cx="1396" cy="544" r="2"/></g>
+    </g>
+    <!-- lotus -->
+    <g class="fx-breathe" style="animation-duration:5s">
+      <g transform="translate(1495,668) scale(1.25)">
+        <path transform="rotate(-80) scale(1.1)" d="M0,0 C-18,-20 -15,-52 0,-72 C15,-52 18,-20 0,0Z" fill="#f4a98c"/>
+        <path transform="rotate(-55) scale(1.1)" d="M0,0 C-18,-20 -15,-52 0,-72 C15,-52 18,-20 0,0Z" fill="#f4a98c"/>
+        <path transform="rotate(-28) scale(1.1)" d="M0,0 C-18,-20 -15,-52 0,-72 C15,-52 18,-20 0,0Z" fill="#f4a98c"/>
+        <path transform="rotate(28) scale(1.1)" d="M0,0 C-18,-20 -15,-52 0,-72 C15,-52 18,-20 0,0Z" fill="#f4a98c"/>
+        <path transform="rotate(55) scale(1.1)" d="M0,0 C-18,-20 -15,-52 0,-72 C15,-52 18,-20 0,0Z" fill="#f4a98c"/>
+        <path transform="rotate(80) scale(1.1)" d="M0,0 C-18,-20 -15,-52 0,-72 C15,-52 18,-20 0,0Z" fill="#f4a98c"/>
+        <path transform="rotate(-62) scale(1.0)" d="M0,0 C-18,-20 -15,-52 0,-72 C15,-52 18,-20 0,0Z" fill="#f8bea3"/>
+        <path transform="rotate(-34) scale(1.0)" d="M0,0 C-18,-20 -15,-52 0,-72 C15,-52 18,-20 0,0Z" fill="#f8bea3"/>
+        <path transform="rotate(0) scale(1.0)" d="M0,0 C-18,-20 -15,-52 0,-72 C15,-52 18,-20 0,0Z" fill="#f8bea3"/>
+        <path transform="rotate(34) scale(1.0)" d="M0,0 C-18,-20 -15,-52 0,-72 C15,-52 18,-20 0,0Z" fill="#f8bea3"/>
+        <path transform="rotate(62) scale(1.0)" d="M0,0 C-18,-20 -15,-52 0,-72 C15,-52 18,-20 0,0Z" fill="#f8bea3"/>
+        <path transform="rotate(-40) scale(.72)" d="M0,0 C-18,-20 -15,-52 0,-72 C15,-52 18,-20 0,0Z" fill="#fcd6c3"/>
+        <path transform="rotate(-14) scale(.72)" d="M0,0 C-18,-20 -15,-52 0,-72 C15,-52 18,-20 0,0Z" fill="#fcd6c3"/>
+        <path transform="rotate(14) scale(.72)" d="M0,0 C-18,-20 -15,-52 0,-72 C15,-52 18,-20 0,0Z" fill="#fcd6c3"/>
+        <path transform="rotate(40) scale(.72)" d="M0,0 C-18,-20 -15,-52 0,-72 C15,-52 18,-20 0,0Z" fill="#fcd6c3"/>
+        <circle cx="0" cy="-14" r="5" fill="#f9d57a"/>
+      </g>
+    </g>
+    <!-- yoga mat -->
+    <g transform="translate(20,0)">
+      <ellipse cx="1722" cy="674" rx="190" ry="10" fill="#d9a98e" opacity=".5"/>
+      <path d="M1590,586 L1832,586 L1832,668 L1590,668 C1578,668 1572,650 1572,627 C1572,604 1578,586 1590,586Z" fill="#f2a98a"/>
+      <path d="M1590,586 L1832,586 L1832,606 L1590,606 C1580,606 1576,598 1578,592Z" fill="#f8c4a9" opacity=".75"/>
+      <path d="M1600,650 L1830,650" stroke="#e08f70" stroke-width="3" opacity=".6"/>
+      <ellipse cx="1832" cy="627" rx="41" ry="41" fill="#f5b095" stroke="#c8664c" stroke-width="3.5"/>
+      <circle cx="1832" cy="627" r="30" fill="none" stroke="#c8664c" stroke-width="3.5"/>
+      <circle cx="1832" cy="627" r="19" fill="none" stroke="#c8664c" stroke-width="3.5"/>
+      <circle cx="1832" cy="627" r="8" fill="#e58a6c"/>
+    </g>
+    <!-- far-right leafy branch -->
+    <g fill="#b9c096" opacity=".38" filter="url(#bgSoft)"><ellipse cx="1830" cy="470" rx="46" ry="110" transform="rotate(-14 1830 470)"/><ellipse cx="1895" cy="440" rx="42" ry="120" transform="rotate(12 1895 440)"/><ellipse cx="1775" cy="520" rx="34" ry="80" transform="rotate(-30 1775 520)"/></g>
+    <g>
+      <path d="M1925,640 C1880,590 1850,500 1855,420 C1858,380 1872,350 1892,320" stroke="#76844f" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <g class="fx-sway" style="animation-duration:8s;animation-delay:0s"><g opacity="1" transform="translate(1893,322) rotate(8) scale(1.25)"><use href="#oLeaf"/></g></g>
+      <g class="fx-sway" style="animation-duration:7s;animation-delay:-2s"><g opacity="1" transform="translate(1858,400) rotate(-55) scale(1.35)"><use href="#oLeaf"/></g></g>
+      <g class="fx-sway" style="animation-duration:7.5s;animation-delay:-3s"><g opacity="1" transform="translate(1858,420) rotate(55) scale(1.3)"><use href="#oLeaf"/></g></g>
+      <g class="fx-sway" style="animation-duration:9s;animation-delay:-1s"><g opacity="1" transform="translate(1851,480) rotate(-62) scale(1.45)"><use href="#oLeaf"/></g></g>
+      <g class="fx-sway" style="animation-duration:8.5s;animation-delay:-4s"><g opacity="1" transform="translate(1853,500) rotate(60) scale(1.4)"><use href="#oLeaf"/></g></g>
+      <g class="fx-sway" style="animation-duration:6.5s;animation-delay:-2s"><g opacity="1" transform="translate(1862,560) rotate(-68) scale(1.4)"><use href="#oLeaf"/></g></g>
+      <g class="fx-sway" style="animation-duration:7s;animation-delay:-5s"><g opacity="1" transform="translate(1880,585) rotate(64) scale(1.3)"><use href="#oLeaf"/></g></g>
+    </g>
+    <!-- life: sparkles, hearts, petals, birds, butterflies -->
+    <g fill="#fff" opacity=".9">
+      <g transform="translate(1240,470) scale(.9)"><use class="fx-twinkle" style="animation-delay:-.3s" href="#fxStar"/></g>
+      <g transform="translate(1500,420) scale(.7)"><use class="fx-twinkle" style="animation-delay:-1.2s" href="#fxStar"/></g>
+      <g transform="translate(1700,520) scale(.8)"><use class="fx-twinkle" style="animation-delay:-2s" href="#fxStar"/></g>
+      <g transform="translate(1010,430) scale(.6)"><use class="fx-twinkle" style="animation-delay:-.8s" href="#fxStar"/></g>
+      <g transform="translate(1620,330) scale(1)"><use class="fx-twinkle" style="animation-delay:-1.6s" href="#fxStar"/></g>
+      <g transform="translate(1350,250) scale(.7)"><use class="fx-twinkle" style="animation-delay:-.5s" href="#fxStar"/></g>
+    </g>
+    <g fill="#f4a08e" opacity=".8">
+      <g class="fx-float" style="animation-duration:5s"><use href="#fxHeart" transform="translate(1500,520) scale(.9)"/></g>
+      <g class="fx-float" style="animation-duration:6.5s;animation-delay:-2s"><use href="#fxHeart" transform="translate(1590,470) scale(.7)"/></g>
+      <g class="fx-float" style="animation-duration:7s;animation-delay:-4s"><use href="#fxHeart" transform="translate(1260,500) scale(.6)"/></g>
+    </g>
+    <g fill="#f6a58f">
+      <g class="fx-fall" style="animation-duration:15s;animation-delay:-2s"><use href="#fxPetal" x="1300" y="150"/></g>
+      <g class="fx-fall" style="animation-duration:18s;animation-delay:-8s"><use href="#fxPetal" x="1520" y="140" transform="scale(.8)"/></g>
+      <g class="fx-fall" style="animation-duration:16s;animation-delay:-5s"><use href="#fxPetal" x="1720" y="160"/></g>
+      <g class="fx-fall" style="animation-duration:20s;animation-delay:-12s"><use href="#fxPetal" x="1130" y="150"/></g>
+    </g>
     <g fill="#8a5a4a" stroke="#8a5a4a" stroke-width="2.4" stroke-linecap="round">
-      <g class="fx-fly" style="animation-duration:34s;animation-delay:-6s"><g transform="translate(1085,128)"><path class="fx-flap" d="M0,0 q9,-9 18,0 q9,-9 18,0" fill="none"/></g></g>
-      <g class="fx-fly" style="animation-duration:41s;animation-delay:-20s"><g transform="translate(1075,150) scale(.8)"><path class="fx-flap" style="animation-delay:-.2s" d="M0,0 q9,-9 18,0 q9,-9 18,0" fill="none"/></g></g>
-      <g class="fx-fly" style="animation-duration:38s;animation-delay:-30s"><g transform="translate(1080,108) scale(.65)"><path class="fx-flap" style="animation-delay:-.4s" d="M0,0 q9,-9 18,0 q9,-9 18,0" fill="none"/></g></g>
+      <g class="fx-fly" style="animation-duration:34s;animation-delay:-6s"><g transform="translate(1085,150)"><path class="fx-flap" d="M0,0 q9,-9 18,0 q9,-9 18,0" fill="none"/></g></g>
+      <g class="fx-fly" style="animation-duration:41s;animation-delay:-20s"><g transform="translate(1075,176) scale(.8)"><path class="fx-flap" d="M0,0 q9,-9 18,0 q9,-9 18,0" fill="none"/></g></g>
+      <g class="fx-fly" style="animation-duration:38s;animation-delay:-30s"><g transform="translate(1080,128) scale(.65)"><path class="fx-flap" d="M0,0 q9,-9 18,0 q9,-9 18,0" fill="none"/></g></g>
     </g>
-    <!-- mullions -->
-    <rect x="1070" y="172" width="850" height="22" fill="#f1d3c6"/>
-    <rect x="1185" y="115" width="18" height="435" fill="#f1d3c6"/>
-    <rect x="1070" y="115" width="14" height="435" fill="#f3d9cd"/>
-
-    <!-- sill + desk -->
-    <rect x="1070" y="545" width="850" height="143" fill="#f0cdb9"/>
-    <rect x="1070" y="545" width="850" height="22" fill="#e7c0ae"/>
-    <rect x="1070" y="565" width="850" height="14" fill="#f8dcc9"/>
-    <polygon points="560,688 760,652 1070,652 1070,688" fill="#f3cfb7"/>
-    <polygon points="1710,688 1750,656 1920,656 1920,688" fill="#e9c4b3"/>
-
-    <!-- blurred plant, far right -->
-    <g fill="#a9b58b" opacity="0.5" filter="url(#bgSoft)">
-      <path d="M1740,550 C1750,490 1800,455 1860,470 C1880,520 1830,560 1740,550Z"/>
-      <path d="M1780,400 C1830,370 1880,380 1900,420 C1850,440 1800,435 1780,400Z"/>
-      <path d="M1850,440 C1880,420 1905,425 1920,450 L1920,540 C1890,520 1860,490 1850,440Z"/>
-    </g>
-
-    <!-- rays of light -->
-    <g class="fx-rays" fill="#fff6dc" opacity=".2">
-      <polygon points="1500,190 640,690 880,690"/><polygon points="1560,230 1020,690 1240,690"/><polygon points="1620,250 1380,690 1560,690"/>
-    </g>
-    <!-- hanging vines -->
-    <g class="fx-sway fx-sway-top"><path d="M1745,115 C1727,170 1761,230 1739,330" stroke="#7d9468" stroke-width="3" fill="none" stroke-linecap="round"/><ellipse cx="1733" cy="150" rx="9.0" ry="15.0" transform="rotate(-40 1733 150)" fill="#8fae78"/><ellipse cx="1755" cy="175" rx="9.9" ry="16.5" transform="rotate(45 1755 175)" fill="#8fae78"/><ellipse cx="1731" cy="205" rx="9.0" ry="15.0" transform="rotate(-50 1731 205)" fill="#8fae78"/><ellipse cx="1753" cy="232" rx="9.9" ry="16.5" transform="rotate(40 1753 232)" fill="#8fae78"/><ellipse cx="1735" cy="262" rx="8.5" ry="14.2" transform="rotate(-45 1735 262)" fill="#8fae78"/><ellipse cx="1749" cy="292" rx="8.1" ry="13.5" transform="rotate(30 1749 292)" fill="#8fae78"/><ellipse cx="1739" cy="320" rx="7.2" ry="12.0" transform="rotate(-30 1739 320)" fill="#8fae78"/></g><g class="fx-sway fx-sway-top"><path d="M1840,115 C1822,170 1856,230 1834,260" stroke="#7d9468" stroke-width="3" fill="none" stroke-linecap="round"/><ellipse cx="1828" cy="150" rx="9.0" ry="15.0" transform="rotate(-40 1828 150)" fill="#9bb985"/><ellipse cx="1850" cy="175" rx="9.9" ry="16.5" transform="rotate(45 1850 175)" fill="#9bb985"/><ellipse cx="1826" cy="205" rx="9.0" ry="15.0" transform="rotate(-50 1826 205)" fill="#9bb985"/><ellipse cx="1848" cy="232" rx="9.9" ry="16.5" transform="rotate(40 1848 232)" fill="#9bb985"/><ellipse cx="1830" cy="262" rx="8.5" ry="14.2" transform="rotate(-45 1830 262)" fill="#9bb985"/><ellipse cx="1844" cy="292" rx="8.1" ry="13.5" transform="rotate(30 1844 292)" fill="#9bb985"/><ellipse cx="1834" cy="320" rx="7.2" ry="12.0" transform="rotate(-30 1834 320)" fill="#9bb985"/></g><g class="fx-sway fx-sway-top"><path d="M1665,115 C1647,170 1681,230 1659,230" stroke="#7d9468" stroke-width="3" fill="none" stroke-linecap="round"/><ellipse cx="1653" cy="150" rx="9.0" ry="15.0" transform="rotate(-40 1653 150)" fill="#86a56f"/><ellipse cx="1675" cy="175" rx="9.9" ry="16.5" transform="rotate(45 1675 175)" fill="#86a56f"/><ellipse cx="1651" cy="205" rx="9.0" ry="15.0" transform="rotate(-50 1651 205)" fill="#86a56f"/><ellipse cx="1673" cy="232" rx="9.9" ry="16.5" transform="rotate(40 1673 232)" fill="#86a56f"/><ellipse cx="1655" cy="262" rx="8.5" ry="14.2" transform="rotate(-45 1655 262)" fill="#86a56f"/><ellipse cx="1669" cy="292" rx="8.1" ry="13.5" transform="rotate(30 1669 292)" fill="#86a56f"/><ellipse cx="1659" cy="320" rx="7.2" ry="12.0" transform="rotate(-30 1659 320)" fill="#86a56f"/></g>
-    <!-- tall plant on the sill -->
-    <g>
-      <g class="fx-sway">
-        <g transform="translate(1648,512)">
-          <g fill="#7f9a6a"><path transform="rotate(-34)" d="M0,0 C16,-46 14,-128 0,-196 C-14,-128 -16,-46 0,0Z"/><path transform="rotate(34)" d="M0,0 C16,-46 14,-128 0,-196 C-14,-128 -16,-46 0,0Z"/></g>
-          <g fill="#8fa876"><path transform="rotate(-17)" d="M0,0 C16,-50 14,-140 0,-215 C-14,-140 -16,-50 0,0Z"/><path transform="rotate(17)" d="M0,0 C16,-50 14,-140 0,-215 C-14,-140 -16,-50 0,0Z"/></g>
-          <path d="M0,0 C18,-54 16,-150 0,-232 C-16,-150 -18,-54 0,0Z" fill="#9db086"/>
-          <g stroke="#6f8b5d" stroke-width="2" fill="none" opacity=".6"><path d="M0,-6 L0,-215"/><path transform="rotate(-17)" d="M0,-6 L0,-195"/><path transform="rotate(17)" d="M0,-6 L0,-195"/></g>
-        </g>
-      </g>
-      <path d="M1606,500 L1690,500 L1678,566 L1618,566Z" fill="#dba87f"/>
-      <path d="M1600,500 L1696,500 L1695,514 L1601,514Z" fill="#cf9a72"/>
-    </g>
-    <!-- small plant on the sill -->
-    <g>
-      <path d="M1433,520 L1488,520 L1482,566 L1440,566Z" fill="#e2a982"/>
-      <path d="M1425,520 L1498,520 L1498,532 L1425,532Z" fill="#d99c74"/>
-      <g fill="#97ad7b">
-        <path d="M1460,522 C1445,500 1440,470 1447,448 C1462,465 1468,500 1460,522Z"/>
-        <path d="M1460,522 C1450,505 1425,495 1413,490 C1430,483 1452,500 1460,522Z"/>
-        <path d="M1460,522 C1475,505 1500,495 1517,497 C1500,510 1478,520 1460,522Z"/>
-        <path d="M1460,522 C1465,495 1480,478 1490,470 C1492,490 1478,510 1460,522Z"/>
-      </g>
-    </g>
-
-    <!-- tall plant -->
-    <g>
-      <path d="M925,588 L1018,588 L1000,655 L945,655Z" fill="#dba87f"/>
-      <path d="M918,588 L1026,588 L1024,602 L920,602Z" fill="#cf9a72"/>
-      <g stroke="#7c9566" stroke-width="3" fill="none"><path d="M968,590 C965,520 960,440 948,365"/><path d="M968,590 C990,520 1010,430 1050,372"/></g>
-      <g fill="#8aa275">
-        <path d="M948,590 C915,560 910,470 922,350 C960,380 975,480 966,590Z" fill="#88a072"/>
-        <path d="M968,590 C975,500 1005,410 1052,358 C1068,420 1030,540 968,590Z" fill="#9db086"/>
-        <path d="M958,590 C905,585 865,555 848,512 C895,498 945,530 958,590Z" fill="#a2b186"/>
-        <path d="M975,590 C1030,590 1075,560 1094,520 C1050,500 995,525 975,590Z" fill="#94a97e"/>
-        <path d="M966,590 C930,520 870,462 866,418 C920,425 975,500 966,590Z" fill="#8ba575"/>
-        <path d="M972,590 C1010,520 1075,470 1108,424 C1050,415 985,500 972,590Z" fill="#a9b88e"/>
-      </g>
-    </g>
-
-    <!-- monstera -->
-    <g>
-      <path d="M768,606 L830,606 L824,640 L774,640Z" fill="#e0b08a"/>
-      <path d="M762,604 L836,604 L836,614 L762,614Z" fill="#d49f78"/>
-      <g stroke="#6f8b5d" stroke-width="3" fill="none"><path d="M800,604 C795,560 790,520 790,480"/><path d="M810,604 C830,570 845,520 840,470"/></g>
-      <path d="M718,505 C712,470 745,455 790,470 C830,480 842,520 836,550 C826,585 770,590 745,575 C725,560 720,530 718,505Z" fill="#6f8f60"/>
-      <path d="M788,468 C800,440 830,432 855,445 C875,458 880,480 870,500 C850,505 815,500 788,468Z" fill="#7d9a6a"/>
-      <path d="M815,555 C840,540 870,545 885,570 C880,598 850,612 828,598 C815,588 812,570 815,555Z" fill="#7a9a68"/>
-      <g fill="#e8c9b3">
-        <path d="M718,505 L760,512 L722,528Z"/><path d="M744,560 L782,545 L772,575Z"/><path d="M800,478 L808,508 L790,500Z"/>
-        <path d="M836,550 L808,548 L822,530Z" />
-      </g>
-    </g>
-
-    <!-- books -->
-    <g>
-      <rect x="760" y="660" width="200" height="30" fill="#b48a6c"/>
-      <rect x="768" y="662" width="188" height="6" fill="#f0dfcf"/>
-      <rect x="760" y="643" width="188" height="19" fill="#7c7684"/>
-      <rect x="780" y="647" width="165" height="5" fill="#f0dfcf"/>
-      <rect x="772" y="624" width="170" height="20" fill="#9aaa71"/>
-      <rect x="788" y="634" width="150" height="5" fill="#f0e2cf"/>
-    </g>
-
-    <g class="fx-float" style="animation-duration:6s;animation-delay:-1s"><circle cx="160" cy="330" r="3" fill="#fff" opacity="0.6"/></g><g class="fx-float" style="animation-duration:8s;animation-delay:-3s"><circle cx="420" cy="460" r="4" fill="#ffe0b0" opacity="0.6"/></g><g class="fx-float" style="animation-duration:7s;animation-delay:-2s"><circle cx="700" cy="240" r="3" fill="#fff" opacity="0.55"/></g><g class="fx-float" style="animation-duration:9s;animation-delay:-5s"><circle cx="780" cy="520" r="4" fill="#fff" opacity="0.5"/></g><g class="fx-float" style="animation-duration:6.5s;animation-delay:-4s"><circle cx="950" cy="300" r="3" fill="#fff" opacity="0.6"/></g><g class="fx-float" style="animation-duration:8s;animation-delay:-2s"><circle cx="1130" cy="420" r="4" fill="#ffe0b0" opacity="0.55"/></g><g class="fx-float" style="animation-duration:7s;animation-delay:-6s"><circle cx="1260" cy="330" r="3" fill="#fff" opacity="0.5"/></g><g class="fx-float" style="animation-duration:10s;animation-delay:-1s"><circle cx="1380" cy="470" r="5" fill="#fff" opacity="0.45"/></g><g class="fx-float" style="animation-duration:6s;animation-delay:-3s"><circle cx="1500" cy="380" r="3" fill="#ffe0b0" opacity="0.6"/></g><g class="fx-float" style="animation-duration:9s;animation-delay:-7s"><circle cx="1640" cy="300" r="4" fill="#fff" opacity="0.5"/></g><g class="fx-float" style="animation-duration:7s;animation-delay:-2s"><circle cx="1790" cy="450" r="3" fill="#fff" opacity="0.55"/></g><g class="fx-float" style="animation-duration:8s;animation-delay:-4s"><circle cx="300" cy="570" r="4" fill="#fff" opacity="0.45"/></g><g class="fx-float" style="animation-duration:7s;animation-delay:-6s"><circle cx="1010" cy="600" r="3" fill="#ffe0b0" opacity="0.5"/></g><g class="fx-float" style="animation-duration:9s;animation-delay:-3s"><circle cx="1850" cy="580" r="4" fill="#fff" opacity="0.5"/></g><g transform="translate(120,260) scale(0.9)"><use class="fx-twinkle" style="animation-delay:-0s" href="#fxStar" fill="#fff"/></g><g transform="translate(560,200) scale(0.7)"><use class="fx-twinkle" style="animation-delay:-1s" href="#fxStar" fill="#fff"/></g><g transform="translate(820,330) scale(0.8)"><use class="fx-twinkle" style="animation-delay:-2s" href="#fxStar" fill="#fff"/></g><g transform="translate(1330,200) scale(0.9)"><use class="fx-twinkle" style="animation-delay:-1.5s" href="#fxStar" fill="#fff"/></g><g transform="translate(1450,230) scale(0.7)"><use class="fx-twinkle" style="animation-delay:-0.5s" href="#fxStar" fill="#fff"/></g><g transform="translate(1700,420) scale(0.8)"><use class="fx-twinkle" style="animation-delay:-2.2s" href="#fxStar" fill="#fff"/></g><g transform="translate(240,420) scale(0.6)"><use class="fx-twinkle" style="animation-delay:-0.8s" href="#fxStar" fill="#fff"/></g><g stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"><path class="fx-steam" d="M1036,640 C1026,626 1046,616 1036,602"/><path class="fx-steam" style="animation-delay:-1.8s" d="M1056,642 C1046,628 1066,618 1056,604"/></g><!-- cup -->
-    <g>
-      <ellipse cx="1048" cy="684" rx="48" ry="6" fill="#e3b7a5" opacity="0.7"/>
-      <path d="M1015,652 L1075,652 C1075,676 1062,688 1045,688 C1028,688 1015,676 1015,652Z" fill="#f0c4b4"/>
-      <ellipse cx="1045" cy="652" rx="30" ry="6" fill="#e3a998"/>
-      <path d="M1074,658 C1090,656 1090,676 1070,678" fill="none" stroke="#f0c4b4" stroke-width="5"/>
-    </g>
+    <g class="fx-fly" style="animation-duration:26s;animation-delay:-9s"><g transform="translate(1000,420)"><g class="fx-float" style="animation-duration:2.4s"><path class="fx-flap" d="M0,0 C-10,-14 -24,-6 -16,6 C-10,12 -2,8 0,0Z M0,0 C10,-14 24,-6 16,6 C10,12 2,8 0,0Z" fill="#f6a089"/></g></g></g>
+        <g class="fx-sway fx-sway-top" style="animation-duration:8.5s;animation-delay:-2s"><path d="M1800,115 C1788,160 1812,210 1798,270" stroke="#7d9468" stroke-width="3" fill="none" stroke-linecap="round"/><g fill="#9bb284"><ellipse cx="1796" cy="170" rx="8" ry="13" transform="rotate(-16 1796 170)"/><ellipse cx="1806" cy="220" rx="8" ry="13" transform="rotate(18 1806 220)"/></g></g>
+    <circle class="fx-breathe" cx="1560" cy="250" r="46" fill="#fff2c8" opacity=".6"/>
+    <g class="fx-float" style="animation-duration:6s;animation-delay:-1s"><circle cx="160" cy="330" r="3" fill="#fff" opacity="0.6"/></g><g class="fx-float" style="animation-duration:8s;animation-delay:-3s"><circle cx="420" cy="460" r="4" fill="#ffe0b0" opacity="0.6"/></g><g class="fx-float" style="animation-duration:7s;animation-delay:-2s"><circle cx="700" cy="240" r="3" fill="#fff" opacity="0.55"/></g><g class="fx-float" style="animation-duration:9s;animation-delay:-5s"><circle cx="780" cy="520" r="4" fill="#fff" opacity="0.5"/></g><g class="fx-float" style="animation-duration:6.5s;animation-delay:-4s"><circle cx="950" cy="300" r="3" fill="#fff" opacity="0.6"/></g><g class="fx-float" style="animation-duration:8s;animation-delay:-2s"><circle cx="1130" cy="420" r="4" fill="#ffe0b0" opacity="0.55"/></g><g class="fx-float" style="animation-duration:7s;animation-delay:-6s"><circle cx="1260" cy="330" r="3" fill="#fff" opacity="0.5"/></g><g class="fx-float" style="animation-duration:10s;animation-delay:-1s"><circle cx="1380" cy="470" r="5" fill="#fff" opacity="0.45"/></g><g class="fx-float" style="animation-duration:6s;animation-delay:-3s"><circle cx="1500" cy="380" r="3" fill="#ffe0b0" opacity="0.6"/></g><g class="fx-float" style="animation-duration:9s;animation-delay:-7s"><circle cx="1640" cy="300" r="4" fill="#fff" opacity="0.5"/></g><g class="fx-float" style="animation-duration:7s;animation-delay:-2s"><circle cx="1790" cy="450" r="3" fill="#fff" opacity="0.55"/></g><g class="fx-float" style="animation-duration:8s;animation-delay:-4s"><circle cx="300" cy="570" r="4" fill="#fff" opacity="0.45"/></g><g class="fx-float" style="animation-duration:7s;animation-delay:-6s"><circle cx="1010" cy="600" r="3" fill="#ffe0b0" opacity="0.5"/></g><g class="fx-float" style="animation-duration:9s;animation-delay:-3s"><circle cx="1850" cy="580" r="4" fill="#fff" opacity="0.5"/></g><g transform="translate(120,260) scale(0.9)"><use class="fx-twinkle" style="animation-delay:-0s" href="#fxStar" fill="#fff"/></g><g transform="translate(560,200) scale(0.7)"><use class="fx-twinkle" style="animation-delay:-1s" href="#fxStar" fill="#fff"/></g><g transform="translate(820,330) scale(0.8)"><use class="fx-twinkle" style="animation-delay:-2s" href="#fxStar" fill="#fff"/></g><g transform="translate(1330,200) scale(0.9)"><use class="fx-twinkle" style="animation-delay:-1.5s" href="#fxStar" fill="#fff"/></g><g transform="translate(1450,230) scale(0.7)"><use class="fx-twinkle" style="animation-delay:-0.5s" href="#fxStar" fill="#fff"/></g><g transform="translate(1700,420) scale(0.8)"><use class="fx-twinkle" style="animation-delay:-2.2s" href="#fxStar" fill="#fff"/></g><g transform="translate(240,420) scale(0.6)"><use class="fx-twinkle" style="animation-delay:-0.8s" href="#fxStar" fill="#fff"/></g><!-- cup -->
   </g>
 
   <!-- soft waves under the picture -->
@@ -269,7 +250,7 @@
     <g transform="translate(960,780) scale(.7)"><use class="fx-twinkle" style="animation-delay:-.5s" href="#fxStar"/></g>
   </g>
   <!-- pink wave bottom-left -->
-  <path d="M0,525 C55,600 150,650 250,672 C320,688 380,692 412,690 C340,715 245,742 170,733 C100,727 40,708 0,690Z" fill="url(#bgWave)"/>
+  <path d="M0,525 C55,600 150,650 250,672 C320,688 380,692 412,690 C340,715 245,742 170,733 C100,727 40,708 0,690Z" fill="url(#bgWave)" opacity=".5"/>
 
   <!-- bottom corners: soft blobs + leaves -->
   <g fill="#f9e1d6">
@@ -536,7 +517,7 @@
               <div class="sn-icon"><svg viewBox="0 0 80 80" aria-hidden="true"><g stroke="#7b7f4f" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"><path d="M30 12h22l10 10v44H30z" fill="#98a05f"/><path d="M52 12v10h10" fill="#c9cf9c"/><g fill="#e6e9cc" stroke="none"><rect x="46" y="48" width="5" height="12" rx="1"/><rect x="54" y="40" width="5" height="20" rx="1"/><rect x="38" y="54" width="5" height="6" rx="1"/></g><path d="M36 30h12M36 36h8" stroke="#e6e9cc" stroke-width="2.4"/><circle cx="22" cy="46" r="6.5" fill="#7f8648"/><path d="M10 68c0-9 5-14 12-14s12 5 12 14z" fill="#7f8648"/></g></svg></div>
               <h3>Work Intervention <br>Tracker</h3>
               <p>Turn insights into action with follow-ups, schedules, consultations, and referrals.</p>
-              <button class="sn-btn" type="button">Complete Form <b>&rarr;</b></button>
+              <button class="sn-btn" type="button" data-view="tracker">Complete Form <b>&rarr;</b></button>
             </article>
         </div>
 
@@ -553,6 +534,99 @@
           </div>
         </footer>
         <svg class="sn-leaves left" viewBox="8 34 128 132" aria-hidden="true"><g fill="none" stroke="#7d7a4b" stroke-width="3" stroke-linecap="round"><path d="M62,162 C52,122 38,96 20,72"/><path d="M62,162 C64,112 68,72 72,38"/><path d="M62,162 C82,128 106,102 132,88"/><path d="M62,162 C48,146 30,138 12,138"/></g><use href="#snLeaf" transform="translate(20,72) rotate(-38) scale(0.72)"/><use href="#snLeaf" transform="translate(36,100) rotate(-62) scale(0.5)"/><use href="#snLeaf" transform="translate(31,86) rotate(24) scale(0.45)"/><use href="#snLeaf" transform="translate(72,38) rotate(3) scale(0.95)"/><use href="#snLeaf" transform="translate(66,92) rotate(-50) scale(0.62)"/><use href="#snLeaf" transform="translate(68,72) rotate(50) scale(0.56)"/><use href="#snLeaf" transform="translate(63,118) rotate(-55) scale(0.6)"/><use href="#snLeaf" transform="translate(64,128) rotate(56) scale(0.55)"/><use href="#snLeaf" transform="translate(66,56) rotate(-46) scale(0.5)"/><use href="#snLeaf" transform="translate(132,88) rotate(58) scale(0.82)"/><use href="#snLeaf" transform="translate(98,110) rotate(12) scale(0.5)"/><use href="#snLeaf" transform="translate(112,98) rotate(104) scale(0.46)"/><use href="#snLeaf" transform="translate(12,138) rotate(-80) scale(0.5)"/><g fill="#e9806b"><circle cx="46" cy="104" r="3.4"/><circle cx="84" cy="80" r="3"/><circle cx="118" cy="104" r="3.2"/></g><g fill="#f4b3a3"><circle cx="30" cy="62" r="2.2"/><circle cx="96" cy="64" r="2"/></g></svg><svg class="sn-leaves right" viewBox="-136 34 128 132" aria-hidden="true"><g transform="scale(-1,1)"><g fill="none" stroke="#7d7a4b" stroke-width="3" stroke-linecap="round"><path d="M62,162 C52,122 38,96 20,72"/><path d="M62,162 C64,112 68,72 72,38"/><path d="M62,162 C82,128 106,102 132,88"/><path d="M62,162 C48,146 30,138 12,138"/></g><use href="#snLeaf" transform="translate(20,72) rotate(-38) scale(0.72)"/><use href="#snLeaf" transform="translate(36,100) rotate(-62) scale(0.5)"/><use href="#snLeaf" transform="translate(31,86) rotate(24) scale(0.45)"/><use href="#snLeaf" transform="translate(72,38) rotate(3) scale(0.95)"/><use href="#snLeaf" transform="translate(66,92) rotate(-50) scale(0.62)"/><use href="#snLeaf" transform="translate(68,72) rotate(50) scale(0.56)"/><use href="#snLeaf" transform="translate(63,118) rotate(-55) scale(0.6)"/><use href="#snLeaf" transform="translate(64,128) rotate(56) scale(0.55)"/><use href="#snLeaf" transform="translate(66,56) rotate(-46) scale(0.5)"/><use href="#snLeaf" transform="translate(132,88) rotate(58) scale(0.82)"/><use href="#snLeaf" transform="translate(98,110) rotate(12) scale(0.5)"/><use href="#snLeaf" transform="translate(112,98) rotate(104) scale(0.46)"/><use href="#snLeaf" transform="translate(12,138) rotate(-80) scale(0.5)"/><g fill="#e9806b"><circle cx="46" cy="104" r="3.4"/><circle cx="84" cy="80" r="3"/><circle cx="118" cy="104" r="3.2"/></g><g fill="#f4b3a3"><circle cx="30" cy="62" r="2.2"/><circle cx="96" cy="64" r="2"/></g></g></svg>
+      </div>
+    </section>
+
+    <section class="page" id="tracker">
+      <div class="tr-wrap">
+        <header class="tr-banner">
+          <span class="tr-plane"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M8 30 56 8 44 56 31 38 8 30Z" fill="#c8603f"/><path d="M31 38 56 8 26 33Z" fill="#a84a2d"/><path d="M31 38 28 52 38 43Z" fill="#e58a6c"/></svg></span>
+          <div class="tr-head">
+            <h2 class="tr-title" id="trTitle">Report a Workload Concern</h2>
+            <p id="trSub">Send a message to our HR and Employee Support Team.<br>Your concern will be reviewed and handled with care.</p>
+          </div>
+          <div class="tr-voice" aria-hidden="true">Your<br>voice matters.</div>
+          <svg class="tr-leaf" viewBox="0 0 120 120" aria-hidden="true"><circle cx="78" cy="66" r="46" fill="#f8d8c8"/><g fill="#efb09c"><path d="M70 112C66 84 70 60 84 36 94 62 88 90 70 112Z"/><path d="M68 92C48 88 36 74 32 58 52 62 66 74 68 92Z"/><path d="M74 78C92 76 104 64 108 48 90 50 76 60 74 78Z"/><path d="M80 52C70 44 68 32 72 20 82 28 86 40 80 52Z"/></g></svg>
+        </header>
+
+        <div class="tr-bar">
+          <div class="tr-tabs" id="trTabs" role="tablist"></div>
+          <span class="adm-spacer"></span>
+          <button class="adm-btn ghost" id="trRefresh" type="button">Refresh</button>
+          <button class="adm-btn danger" id="trResetAll" type="button" hidden>Reset all concerns</button>
+        </div>
+        <p class="adm-msg" id="trMsg" aria-live="polite"></p>
+
+        <!-- employee: the form (hidden while a concern is still open) -->
+        <div class="tr-card tr-form" id="trForm" hidden>
+          <div class="tr-row"><label>To</label><div class="tr-to" data-f="to"><span class="tr-chips"></span><button type="button" class="tr-add" aria-label="Add a recipient">+</button><div class="tr-menu" hidden></div></div>
+            <span class="tr-cc"><button type="button" data-show="cc">Cc</button><button type="button" data-show="bcc">Bcc</button></span></div>
+          <div class="tr-row" id="trCcRow" hidden><label>Cc</label><div class="tr-to" data-f="cc"><span class="tr-chips"></span><button type="button" class="tr-add" aria-label="Add a Cc recipient">+</button><div class="tr-menu" hidden></div></div></div>
+          <div class="tr-row" id="trBccRow" hidden><label>Bcc</label><div class="tr-to" data-f="bcc"><span class="tr-chips"></span><button type="button" class="tr-add" aria-label="Add a Bcc recipient">+</button><div class="tr-menu" hidden></div></div></div>
+          <div class="tr-row"><label for="trSubject">Subject</label><input id="trSubject" class="tr-input" type="text" maxlength="120" autocomplete="off"></div>
+
+          <div class="tr-cats">
+            <div><h4>Category <small>(optional)</small></h4>
+              <div class="tr-pills" id="trCategory">
+                <button type="button" data-v="Workload">Workload</button><button type="button" data-v="Recovery">Recovery</button><button type="button" data-v="Schedule">Schedule</button><button type="button" data-v="Support">Support</button><button type="button" data-v="Other">Other</button>
+              </div></div>
+            <i class="tr-vr"></i>
+            <div><h4>Priority <small>(optional)</small></h4>
+              <div class="tr-pills prio" id="trPriority">
+                <button type="button" data-v="Low"><b style="background:#6f9a4f"></b>Low</button><button type="button" data-v="Moderate"><b style="background:#e6b030"></b>Moderate</button><button type="button" data-v="High"><b style="background:#e8873f"></b>High</button><button type="button" data-v="Critical"><b style="background:#cf4a3a"></b>Critical</button>
+              </div></div>
+          </div>
+
+          <h4 class="tr-h">Suggested Support <small>(optional)</small></h4>
+          <div class="tr-checks" id="trSupport">
+            <label><input type="checkbox" value="Schedule Review"><i></i>Schedule Review</label>
+            <label><input type="checkbox" value="Manager Consultation"><i></i>Manager Consultation</label>
+            <label><input type="checkbox" value="Staffing Assessment"><i></i>Staffing Assessment</label>
+            <label><input type="checkbox" value="Wellness Referral"><i></i>Wellness Referral</label>
+            <label><input type="checkbox" value="Unsure, I would like a guidance"><i></i>Unsure, I would like a guidance</label>
+          </div>
+
+          <div class="tr-editor">
+            <div class="tr-tools" id="trTools">
+              <select id="trBlock" aria-label="Text style"><option value="p">Normal Text</option><option value="h3">Heading</option></select>
+              <button type="button" data-cmd="bold" title="Bold"><b>B</b></button>
+              <button type="button" data-cmd="italic" title="Italic"><i>I</i></button>
+              <button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
+              <i class="sep"></i>
+              <button type="button" data-cmd="justifyLeft" title="Align left"><svg viewBox="0 0 20 16"><path d="M1 2h18M1 6h12M1 10h18M1 14h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></button>
+              <button type="button" data-cmd="insertUnorderedList" title="Bulleted list"><svg viewBox="0 0 20 16"><path d="M7 2h12M7 8h12M7 14h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="2" cy="2" r="1.6" fill="currentColor"/><circle cx="2" cy="8" r="1.6" fill="currentColor"/><circle cx="2" cy="14" r="1.6" fill="currentColor"/></svg></button>
+              <i class="sep"></i>
+              <button type="button" data-act="link" title="Add a link"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></button>
+              <span class="tr-emoji-wrap"><button type="button" data-act="emoji" title="Emoji"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="9" cy="10" r="1.2" fill="currentColor"/><circle cx="15" cy="10" r="1.2" fill="currentColor"/><path d="M8 14c1.2 2 6.8 2 8 0" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></button>
+                <span class="tr-emoji" id="trEmoji" hidden></span></span>
+              <span class="adm-spacer"></span>
+              <button type="button" data-cmd="undo" title="Undo"><svg viewBox="0 0 24 24"><path d="M9 7 4 12l5 5M4 12h10a6 6 0 0 1 0 12" transform="translate(0 -4)" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+              <button type="button" data-cmd="redo" title="Redo"><svg viewBox="0 0 24 24"><path d="m15 7 5 5-5 5M20 12H10a6 6 0 0 0 0 12" transform="translate(0 -4)" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            </div>
+            <div class="tr-body" id="trBody" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Describe your concern" data-ph="Describe your concern…"></div>
+          </div>
+          <div class="tr-foot"><span class="adm-msg" id="trFormNote" aria-live="polite"></span><button class="tr-send" id="trSend" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 11 22 2 18 22 12 14Z" fill="#fff"/></svg>Send Report</button></div>
+        </div>
+
+        <!-- list of concerns -->
+        <div class="tr-card tr-list" id="trList" hidden></div>
+
+        <!-- one concern -->
+        <div class="tr-card tr-detail" id="trDetail" hidden>
+          <button class="tr-back" id="trBack" type="button">&larr; Back</button>
+          <div class="tr-dhead">
+            <div><h3 id="trdSubject"></h3><p class="tr-meta" id="trdMeta"></p></div>
+            <span class="tr-status" id="trdStatus"></span>
+          </div>
+          <div class="tr-tags" id="trdTags"></div>
+          <div class="tr-orig" id="trdBody"></div>
+          <h4 class="tr-h">Replies</h4>
+          <div class="thread" id="trdThread"></div>
+          <div class="compose" id="trdCompose"><textarea id="trdText" rows="2" maxlength="500" placeholder="Write a reply…"></textarea><button class="adm-btn" id="trdSend" type="button">Reply</button></div>
+          <div class="tr-actions"><span class="adm-msg" id="trdNote"></span><span class="adm-spacer"></span>
+            <button class="adm-btn danger" id="trdClose" type="button" hidden>Close concern</button>
+            <button class="adm-btn danger" id="trdReset" type="button" hidden>Reset concern</button></div>
+        </div>
       </div>
     </section>
 
@@ -671,15 +745,16 @@
       <div class="adm-wrap">
         <p class="adm-eyebrow">Admin</p>
         <h2 class="adm-title">Employee check-in data</h2>
-        <p class="adm-lead">See how each employee is doing and reset their check-in data when needed.</p>
+        <p class="adm-lead">See how each employee is doing and reset their check-ins or messages when needed.</p>
         <div class="adm-bar">
           <span id="admCount">Loading…</span>
           <span class="adm-spacer"></span>
           <button class="adm-btn ghost" id="admRefresh" type="button">Refresh</button>
-          <button class="adm-btn danger" id="admResetAll" type="button">Reset all employees</button>
+          <button class="adm-btn danger" id="admClearMsgs" type="button">Reset all messages</button>
+          <button class="adm-btn danger" id="admResetAll" type="button">Reset all check-ins</button>
         </div>
         <div class="adm-card">
-          <div class="adm-row adm-th"><span>Employee</span><span>W.L. Status</span><span>R. Status</span><span>Flag</span><span></span></div>
+          <div class="adm-row adm-th"><span>Employee</span><span>Work Load</span><span>Recovery</span><span>Flag</span><span>Check-Ins</span><span>Messages</span></div>
           <div id="admRows"></div>
         </div>
         <p class="adm-msg" id="admMsg" aria-live="polite"></p>
@@ -719,7 +794,7 @@
               <span class="dot"></span>
             </button>
             <div class="dropdown notif">
-              <div class="notif-head">Notifications</div>
+              <div class="notif-head"><span>Notifications</span><button class="notif-clear" id="notifClear" type="button" hidden>Clear all</button></div>
               <ul id="notifList"></ul>
               <p class="notif-empty" id="notifEmpty">No notifications yet.</p>
             </div>
@@ -748,15 +823,61 @@
 
   <!-- ================= TEAM SIDE BAR ================= -->
   <aside class="team-panel" id="teamPanel" aria-label="Team check-in" aria-hidden="true">
-    <div class="tp-head">
-      <div><h3>Team check-in</h3><p id="tpSub">How the team is doing</p></div>
-      <button class="tp-close" id="tpClose" type="button" aria-label="Close">&times;</button>
+    <div class="tp-view tp-view-list">
+      <div class="tp-head">
+        <div><h3>Team check-in</h3><p id="tpSub">How the team is doing</p></div>
+        <button class="tp-close" id="tpClose" type="button" aria-label="Close">&times;</button>
+      </div>
+      <div class="tp-legend"><span class="lv1">Good</span><span class="lv2">Fair</span><span class="lv3">Strained</span><span class="lv4">Critical</span></div>
+      <div class="tp-cols"><span>Employee</span><span>Work Load</span><span>Recovery</span></div>
+      <ul class="tp-list" id="tpList"></ul>
+      <p class="tp-empty" id="tpEmpty">Loading…</p>
     </div>
-    <div class="tp-legend"><span class="lv1">Good</span><span class="lv2">Fair</span><span class="lv3">Strained</span><span class="lv4">Critical</span></div>
-    <div class="tp-cols"><span>Employee</span><span>W.L.</span><span>R.</span></div>
-    <ul class="tp-list" id="tpList"></ul>
-    <p class="tp-empty" id="tpEmpty">Loading…</p>
+
+    <div class="tp-view tp-detail" id="tpDetail">
+      <div class="td-top">
+        <button class="td-back" id="tdBack" type="button">&larr; Team</button>
+        <button class="tp-close" id="tdClose" type="button" aria-label="Close">&times;</button>
+      </div>
+      <div class="td-who">
+        <span id="tdAv"></span>
+        <div><h3 id="tdName"></h3><p id="tdSub"></p></div>
+      </div>
+      <div class="td-stats">
+        <div><small>Work Load</small><span id="tdWl"></span></div>
+        <div><small>Recovery</small><span id="tdRc"></span></div>
+      </div>
+      <div class="td-concern" id="tdConcern" hidden>
+        <span class="td-bang">!</span>
+        <p>Flagged a workload or recovery concern.</p>
+        <button class="td-resolve" id="tdResolve" type="button">Mark as resolved</button>
+      </div>
+      <div class="td-labelrow"><span class="td-label">Messages</span><button class="td-clear" id="tdClear" type="button" hidden>Clear messages</button></div>
+      <div class="thread" id="tdThread"></div>
+      <div class="compose">
+        <textarea id="tdText" rows="2" maxlength="500" placeholder="Write a message…"></textarea>
+        <button class="ic-btn" id="tdSend" type="button">Send</button>
+      </div>
+      <p class="td-msg" id="tdMsg" aria-live="polite"></p>
+    </div>
   </aside>
+
+  <!-- ================= MESSAGES (employee) ================= -->
+  <div class="icon-modal" id="msgModal" hidden role="dialog" aria-modal="true" aria-labelledby="mmTitle">
+    <div class="icon-card msg-card">
+      <h3 id="mmTitle">Messages</h3>
+      <p class="icon-sub">Your conversation with HR / Admin</p>
+      <div class="thread" id="mmThread"></div>
+      <div class="compose">
+        <textarea id="mmText" rows="2" maxlength="500" placeholder="Write a reply…"></textarea>
+      </div>
+      <p class="icon-note" id="mmNote" aria-live="polite"></p>
+      <div class="icon-actions">
+        <button class="ic-btn ghost" id="mmClose" type="button">Close</button>
+        <button class="ic-btn" id="mmSend" type="button">Send reply</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ================= ICON PICKER ================= -->
   <div class="icon-modal" id="iconModal" hidden role="dialog" aria-modal="true" aria-labelledby="iconTitle">
