@@ -692,6 +692,11 @@
       <div class="gd-creatures" id="gdCreatures" aria-hidden="true"></div>
       <div class="gd-ambient" id="gdAmbient" aria-hidden="true"></div>
 
+      <div class="gd-fabs">
+        <button type="button" class="gd-fab" id="gdFabRecent" data-open="recent" aria-label="Recent Activities" title="Recent Activities"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="22" fill="#fff3e4" stroke="#ee7b4f" stroke-width="5"/><path d="M32 18v15l10 6" stroke="#c0502e" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button type="button" class="gd-fab" id="gdFabGrowth" data-open="growth" aria-label="Growth Level" title="Growth Level"><svg viewBox="0 0 64 64"><use href="#gdiSprout"/></svg></button>
+        <button type="button" class="gd-fab" id="gdFabStyle" data-open="style" aria-label="Tree style" title="Tree style" hidden><svg viewBox="0 0 64 64"><use href="#gdiTree"/></svg></button>
+      </div>
       <div class="gd-left">
         <section class="gd-card gd-recent" id="gdRecent">
           <header><h3>Recent Activities</h3><span class="gd-hbtns"><button type="button" id="gdClearAll" title="Clear all activity">Clear</button><button type="button" id="gdViewAll">View All <b>&rarr;</b></button></span></header>
@@ -715,7 +720,7 @@
 
       <div class="gd-tr">
         <span class="gd-login" id="gdLogin">Daily login not done yet</span>
-        <button class="gd-quote-btn" id="gdQuoteBtn" type="button"><svg viewBox="0 0 64 64"><use href="#gdiLogin"/></svg><span>Get today's quote</span></button>
+        <button class="gd-quote-btn" id="gdQuoteBtn" type="button" aria-label="Get today's quote" title="Get today's quote"><svg viewBox="0 0 64 64"><use href="#gdiLogin"/></svg><span>Get today's quote</span></button>
         <button class="gd-pack" id="gdPack" type="button" aria-expanded="false" aria-controls="gdItems" title="Garden items"><svg viewBox="0 0 64 64"><use href="#gdiPack"/></svg><span id="gdPackN" hidden>0</span></button>
       </div>
       <section class="gd-card gd-items" id="gdItems" hidden>

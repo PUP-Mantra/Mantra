@@ -2274,3 +2274,25 @@ button.tr-row-item:hover { background: #fdebe0; }
 .gd-user.flash { animation: gdFlash 1.4s ease; }
 @keyframes gdFlash { 0% { background: #e3f4d2; box-shadow: 0 0 0 .2rem #9ad35c; } 100% { background: #fff; box-shadow: 0 0 0 0 transparent; } }
 .gd-user .gd-bar i { transition: width .8s ease; }
+
+.gd-fabs { display: none; }
+@media (max-width: 820px) {
+  .gd-fabs { display: flex; position: absolute; left: .8rem; top: .8rem; z-index: 7; gap: .5rem; }
+  .gd-fab { width: 3rem; height: 3rem; padding: 0; display: grid; place-items: center; border: .15rem solid #ee7b4f; border-radius: 50%; background: #fdf3ea; box-shadow: 0 .4rem 1rem rgba(120, 60, 30, .18); cursor: pointer; }
+  .gd-fab[hidden] { display: none; }
+  .gd-fab.on { background: #fde0d4; box-shadow: 0 0 0 .2rem rgba(238, 123, 79, .35); }
+  .gd-fab svg { width: 1.7rem; height: 1.7rem; }
+  .gd-left { top: 4.4rem; pointer-events: none; }
+  .gd-left > * { pointer-events: auto; }
+  #garden:not([data-open="recent"]) .gd-recent, #garden:not([data-open="growth"]) .gd-row, #garden:not([data-open="style"]) .gd-style { display: none; }
+  .gd-recent, .gd-style { width: auto; }
+  .gd-growth { width: 100%; box-sizing: border-box; }
+  .gd-tr { top: .8rem; bottom: auto; right: .8rem; }
+  .gd-quote-btn { position: relative; width: 3rem; height: 3rem; padding: 0; justify-content: center; border-radius: 50%; box-shadow: 0 .4rem 1rem rgba(120, 60, 30, .18); }
+  .gd-quote-btn span { display: none; }
+  .gd-quote-btn svg { width: 1.8rem; height: 1.8rem; }
+  .gd-quote-btn:not(.done)::after { content: ""; position: absolute; right: -.1rem; top: -.1rem; width: .8rem; height: .8rem; border-radius: 50%; background: #e45a3c; border: .12rem solid #fff; }
+  .gd-pack { width: 3rem; height: 3rem; }
+  .gd-pack svg { width: 1.8rem; height: 1.8rem; }
+  .gd-items { top: 4.4rem; bottom: auto; }
+}

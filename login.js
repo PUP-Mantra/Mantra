@@ -680,6 +680,7 @@ function setupRole() {
   teamBtn.hidden = !isStaff();
   $("gdAdminTab").hidden = currentUser.role !== "admin";
   $("gdStyle").hidden = currentUser.role !== "admin";
+  $("gdFabStyle").hidden = currentUser.role !== "admin";
   document.getElementById("tdClear").hidden = currentUser.role !== "admin";      // only Admin can reset messages
   if (currentUser.role === "employee") {
     api("sync").catch(() => {});                                        // puts their name on their row in the check-in sheet
@@ -1795,6 +1796,7 @@ async function gdEnter() {
   if (!currentUser) return;
   $("gdAdminTab").hidden = currentUser.role !== "admin";
   $("gdStyle").hidden = currentUser.role !== "admin";
+  $("gdFabStyle").hidden = currentUser.role !== "admin";
   if (gd) gdRender(gd, true);
   await gdLoad();
   if (gd) gdSay(gd.loggedToday ? "Thanks for visiting today! Let's keep growing." : "Hi! Tap the quote button to log in today and keep me growing.", "", 7000);
@@ -2176,3 +2178,14 @@ armConfirm($("gdResetMe"), "Reset my garden", "Click again to reset mine", async
 });
 $("gdGiftAll").addEventListener("click", () => gdGift("ALL", "everyone", $("gdAllItem").value, $("gdAllN").value));
 armConfirm($("gdResetAll"), "Reset all gardens", "Click again to reset ALL", () => gdReset("ALL", "everyone"));
+
+/* phone: Recent Activities, Growth Level and Tree style stay closed until their round button is tapped */
+document.querySelectorAll(".gd-fab").forEach((b) => b.addEventListener("click", () => {
+  const g = $("garden"), want = b.dataset.open;
+  g.dataset.open = g.dataset.open === want ? "" : want;
+  document.querySelectorAll(".gd-fab").forEach((x) => x.classList.toggle("on", g.dataset.open === x.dataset.open));
+  if (g.dataset.open) { $("gdItems").hidden = true; $("gdPack").setAttribute("aria-expanded", "false"); }
+}));
+$("gdPack").addEventListener("click", () => {
+  if (!$("gdItems").hidden) { $("garden").dataset.open = ""; document.querySelectorAll(".gd-fab").forEach((x) => x.classList.remove("on")); }
+});
