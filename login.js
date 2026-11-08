@@ -666,7 +666,7 @@ async function api(action, payload = {}) {
   if (action !== "icon" && data.v !== BACKEND_VERSION) throw new Error("outdated");
   return data;
 }
-const BACKEND_VERSION = 15;
+const BACKEND_VERSION = 16;
 
 const adminLink = document.getElementById("adminLink");
 const teamBtn   = document.getElementById("teamBtn");
@@ -2209,7 +2209,21 @@ document.getElementById("rsAll").addEventListener("click", () => {
 function rsMark(k) {
   document.querySelectorAll(".rs-side, .rs-card").forEach((s) => s.classList.toggle("active", s.dataset.rs === k));
 }
-function rsSize(n) { n = Number(n) || 0; return n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB"; }
+const rsCovers = new Map();       // epub id -> data URL (or "" when the book has no cover)
+let rsCovQ = Promise.resolve();
+function rsCover(b, cover) {
+  const put = (src) => {
+    const img = new Image(); img.alt = ""; img.className = "rs-img"; img.referrerPolicy = "no-referrer";
+    img.onload = () => cover.classList.add("has-img");
+    img.src = src; cover.insertBefore(img, cover.firstChild);
+  };
+  if (b.type === "pdf") { put("https://drive.google.com/thumbnail?id=" + b.id + "&sz=w400"); return; }
+  if (rsCovers.has(b.id)) { if (rsCovers.get(b.id)) put(rsCovers.get(b.id)); return; }
+  rsCovQ = rsCovQ.then(() => api("libCover", { id: b.id }).then((r) => {
+    const url = r.ok ? "data:" + r.mime + ";base64," + r.b64 : "";
+    rsCovers.set(b.id, url); if (url && cover.isConnected) put(url);
+  }).catch(() => { rsCovers.set(b.id, ""); }));
+}
 function rsOpen(k) {
   rsCat = k; rsMark(k); rsStopPoll();
   const grid = document.querySelector(".rs-grid"), lib = $("rsLib");
@@ -2252,10 +2266,10 @@ function rsRenderBooks() {
   items.forEach((b) => {
     const el = document.createElement("button");
     el.type = "button"; el.className = "rs-book"; el.dataset.t = b.type;
-    el.innerHTML = '<span class="rs-cover"><svg viewBox="0 0 80 80" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M40 24C32 18 20 17 11 20v40c9-3 21-2 29 4 8-6 20-7 29-4V20c-9-3-21-2-29 4Z"/><path d="M40 24v40"/></g></svg><span class="rs-badge"></span></span><span class="rs-btitle"></span><span class="rs-bmeta"></span>';
-    el.querySelector(".rs-badge").textContent = b.type.toUpperCase();
+    el.innerHTML = '<span class="rs-cover"><svg viewBox="0 0 80 80" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M40 24C32 18 20 17 11 20v40c9-3 21-2 29 4 8-6 20-7 29-4V20c-9-3-21-2-29 4Z"/><path d="M40 24v40"/></g></svg></span><span class="rs-btitle"></span>';
+    if (b.type === "pdf") el.querySelector(".rs-cover").insertAdjacentHTML("beforeend", '<span class="rs-badge">PDF</span>');
     el.querySelector(".rs-btitle").textContent = b.name;
-    el.querySelector(".rs-bmeta").textContent = rsSize(b.size);
+    rsCover(b, el.querySelector(".rs-cover"));
     el.addEventListener("click", () => rsRead(b));
     box.appendChild(el);
   });
