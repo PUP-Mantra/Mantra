@@ -832,13 +832,13 @@
               <div class="sn-icon"><svg viewBox="0 0 80 80" aria-hidden="true"><g stroke="#7b7f4f" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"><rect x="13" y="18" width="54" height="50" rx="8" fill="#98a05f"/><path d="M13 32h54v-6a8 8 0 0 0-8-8H21a8 8 0 0 0-8 8z" fill="#c9cf9c"/><path d="M27 12v12M53 12v12" fill="none"/><g fill="#e6e9cc" stroke="none"><rect x="22" y="40" width="9" height="7" rx="2"/><rect x="35.5" y="40" width="9" height="7" rx="2"/><rect x="49" y="40" width="9" height="7" rx="2"/><rect x="22" y="53" width="9" height="7" rx="2"/><rect x="35.5" y="53" width="9" height="7" rx="2"/></g></g></svg></div>
               <h3>Join a Program</h3>
               <p>Workshops, mental health sessions, and wellness activities.</p>
-              <button class="sn-btn" type="button" data-nu="programs">View Programs <b>&rarr;</b></button>
+              <button class="sn-btn" type="button" data-view="programs">View Programs <b>&rarr;</b></button>
             </article>
             <article class="sn-card c3">
               <div class="sn-icon"><svg viewBox="0 0 80 80" aria-hidden="true"><g fill="none" stroke="#f19a78" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M40 30C30 22 33 11 39 11c3 0 1 3 1 4 0-1-2-4 1-4 6 0 9 11-1 19Z" fill="#f4b394" transform="translate(0 -2)"/><path d="M8 44l10-8 14 4 10-3 12 6 14-6 4 6-12 16-14 6-10-4-12 2z" fill="#fff4ec"/><path d="M32 40l10 8M42 37l10 8M22 56l8 6"/></g></svg></div>
               <h3>Get Professional <br>Support</h3>
               <p>Request assistance or coordinate an appointment with an approved provider.</p>
-              <button class="sn-btn" type="button" data-nu="support">Find Support <b>&rarr;</b></button>
+              <button class="sn-btn" type="button" data-view="support">Find Support <b>&rarr;</b></button>
             </article>
         </div>
 
@@ -893,6 +893,122 @@
       <button type="button" class="rs-nav prev" id="rsRPrev" aria-label="Previous page" hidden>&lsaquo;</button>
       <button type="button" class="rs-nav next" id="rsRNext" aria-label="Next page" hidden>&rsaquo;</button>
     </div>
+
+    <section class="page" id="programs">
+      <div class="pg-wrap">
+        <aside class="pg-side">
+          <h3>Well-Being Programs</h3>
+          <nav>
+            <button type="button" class="pg-tab active" data-pg="upcoming">Upcoming Programs <b>&rarr;</b></button>
+            <button type="button" class="pg-tab" data-pg="past">Past Programs <b>&rarr;</b></button>
+            <button type="button" class="pg-tab" data-view="resources">Resources <b>&rarr;</b></button>
+          </nav>
+          <button type="button" class="pg-act" id="pgNew" hidden>+ New program</button>
+          <button type="button" class="pg-act danger" id="pgResetAll" hidden>Reset all programs</button>
+        </aside>
+        <div class="pg-main">
+          <div class="pg-banner">
+            <a class="rs-brand" href="#nurture" data-view="nurture"><span class="m">mantra</span> <em>nurture</em></a>
+            <h2>Join a Program</h2>
+            <p>Take part in workshops, mental health sessions, and wellness activities.</p>
+          </div>
+          <div class="pg-head"><h3 id="pgListTitle">Upcoming Programs</h3><button type="button" id="pgViewAll" hidden>View all <b>&rarr;</b></button></div>
+          <div class="pg-grid" id="pgGrid"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="pg-modal" id="pgDetail" hidden><div class="pg-box" id="pgDetailBox"></div></div>
+    <div class="pg-modal" id="pgForm" hidden>
+      <form class="pg-box pg-formbox" id="pgFormEl" autocomplete="off">
+        <button type="button" class="pg-x" data-pgclose aria-label="Close">&times;</button>
+        <h3 id="pgFormTitle">New program</h3>
+        <label>Icon</label>
+        <div class="pg-icons" id="pgIcons"><span class="pg-note">Loading icons…</span></div>
+        <label for="pgfTitle">Title</label>
+        <input id="pgfTitle" maxlength="80" required placeholder="e.g. Managing Stress at Work">
+        <div class="pg-row">
+          <div><label for="pgfStart">Starts</label><input id="pgfStart" type="datetime-local" required></div>
+          <div><label for="pgfEnd">Ends</label><input id="pgfEnd" type="datetime-local" required></div>
+        </div>
+        <label for="pgfDesc">Short description</label>
+        <textarea id="pgfDesc" rows="2" maxlength="600" placeholder="One or two lines employees see first"></textarea>
+        <label for="pgfDetails">Further details</label>
+        <textarea id="pgfDetails" rows="5" maxlength="3000" placeholder="Venue or link, who it is for, what to bring, agenda…"></textarea>
+        <label>Rewards for everyone who joins (given when you close the program)</label>
+        <div class="pg-rewards" id="pgRewards"></div>
+        <p class="pg-err" id="pgfErr" hidden></p>
+        <div class="pg-btns"><button type="button" class="pg-ghost" data-pgclose>Cancel</button><button type="submit" class="pg-primary" id="pgfSave">Save program</button></div>
+      </form>
+    </div>
+
+    <section class="page" id="support">
+      <div class="pg-wrap">
+        <aside class="pg-side">
+          <h3>Professional Support</h3>
+          <nav>
+            <button type="button" class="pg-tab active">Request Support <b>&rarr;</b></button>
+            <button type="button" class="pg-tab" data-soon="Our provider network is coming soon.">Our Provider Network <b>&rarr;</b></button>
+            <button type="button" class="pg-tab" data-soon="FAQs are coming soon.">FAQs <b>&rarr;</b></button>
+          </nav>
+        </aside>
+        <div class="pg-main">
+          <div class="pg-banner">
+            <a class="rs-brand" href="#nurture" data-view="nurture"><span class="m">mantra</span> <em>nurture</em></a>
+            <h2>Get Professional Support</h2>
+            <p>Choose the support you need. Our team will guide you through the next steps, including provider matching, scheduling, and more.</p>
+          </div>
+          <div class="sp-row">
+            <div class="sp-panel">
+              <div class="sp-card" id="apCard" role="button" tabindex="0">
+                <span class="pg-ico"><svg viewBox="0 0 80 80" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M30 14h14a4 4 0 0 1 4 4v7a4 4 0 0 1-4 4h-6l-5 4v-4h-3a4 4 0 0 1-4-4v-7a4 4 0 0 1 4-4Z" transform="translate(4 -4)"/><circle cx="22" cy="38" r="5"/><circle cx="58" cy="38" r="5"/><path d="M14 66v-8a6 6 0 0 1 6-6h4l6 4v10M66 66v-8a6 6 0 0 0-6-6h-4l-6 4v10M14 66h16M50 66h16"/></g></svg></span>
+                <h4>Counseling &amp; Therapy</h4>
+                <p>Connect with licensed psychologist or counselors</p>
+                <button type="button" class="pg-go"><span id="apCardBtn">Request an appointment</span><b>&rarr;</b></button>
+              </div>
+              <div class="sp-card o" data-soon="Occupational Health is coming soon.">
+                <span class="pg-ico"><svg viewBox="0 0 80 80" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M40 66C20 52 14 38 22 27c6-8 15-4 18 3 3-7 12-11 18-3 8 11 2 25-18 39Z"/><path d="M56 12v12M50 18h12"/><path d="M40 36v14M33 43h14"/></g></svg></span>
+                <h4>Occupational Health</h4>
+                <p>Get support for work-related health concerns</p>
+                <button type="button" class="pg-go"><span>Learn more</span><b>&rarr;</b></button>
+              </div>
+              <div class="sp-card" id="apOtherCard" role="button" tabindex="0">
+                <span class="pg-ico"><svg viewBox="0 0 80 80" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><rect x="12" y="16" width="56" height="38" rx="4"/><path d="M30 66h20M40 54v12"/><circle cx="32" cy="32" r="5"/><path d="M22 46a10 8 0 0 1 20 0M26 32h-2v4M38 32h2v4"/><path d="M48 26h12M48 32h12M48 38h8"/></g></svg></span>
+                <h4>Other Services</h4>
+                <p>Access EAP and other qualified providers.</p>
+                <button type="button" class="pg-go"><span id="apOtherBtn">Request a service</span><b>&rarr;</b></button>
+              </div>
+            </div>
+            <aside class="sp-secure">
+              <svg viewBox="0 0 48 48" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M24 5l15 5v11c0 10-6 18-15 22C15 39 9 31 9 21V10Z"/><path d="M17 24l5 5 9-10"/></g></svg>
+              <h4>Confidential &amp; Secure</h4>
+              <p>Your information is kept private and only shared with the relevant provider and, when necessary, with your organization in an aggregated form.</p>
+            </aside>
+          </div>
+        </div>
+        <svg class="rs-leaf right" viewBox="0 0 200 200" aria-hidden="true"><use href="#rsLf" transform="translate(150 190) rotate(-20) scale(1.3)"/><use href="#rsLf" transform="translate(150 190) rotate(25) scale(1.1)"/><use href="#rsLf" transform="translate(150 190) rotate(-55) scale(.9)"/></svg>
+      </div>
+    </section>
+
+    <section class="page" id="counseling">
+      <div class="pg-wrap">
+        <aside class="pg-side">
+          <h3 id="apSideTitle">Counseling &amp; Therapy</h3>
+          <nav id="apTabs"></nav>
+          <button type="button" class="pg-act danger" id="apResetAll" hidden>Reset all appointments</button>
+        </aside>
+        <div class="pg-main">
+          <div class="pg-banner">
+            <a class="rs-brand" href="#support" data-view="support"><span class="m">mantra</span> <em>nurture</em></a>
+            <h2 id="apTitle">Counseling &amp; Therapy</h2>
+            <p id="apLead">Share what is on your mind. Someone from HR will review it and reply with your appointment.</p>
+          </div>
+          <div class="ap-body" id="apBody"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="pg-modal" id="apModal" hidden><div class="pg-box ap-box" id="apModalBox"></div></div>
 
     <section class="page" id="about">
       <h2>About</h2>

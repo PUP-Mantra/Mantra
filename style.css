@@ -2453,3 +2453,187 @@ button.tr-row-item:hover { background: #fdebe0; }
 .rs-cover.has-img > svg { opacity: 0; }
 .rs-cover { overflow: hidden; }
 .rs-badge { z-index: 1; }
+
+/* ===== mantra Nurture > Join a Program ===== */
+#programs { background: #fdeee4; overflow-y: auto; padding: 0; }
+.pg-wrap { display: flex; min-height: 100%; box-sizing: border-box; padding: 0.4rem 0 2rem; }
+.pg-side { flex: none; width: 17rem; box-sizing: border-box; margin: 0.4rem 0 0; padding: 2rem 1.4rem; border-radius: 0 2.2rem 2.2rem 0; background: #ffd2bd; align-self: flex-start; min-height: 32rem; }
+.pg-side h3 { margin: 0.4rem 0 3.2rem; font: 700 1.25rem "Poppins", sans-serif; color: #e8714f; }
+.pg-side nav { display: flex; flex-direction: column; gap: 0.3rem; }
+.pg-tab { display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0.5rem; border: 0; border-radius: 0.7rem; background: transparent; font: 400 1.02rem "Poppins", sans-serif; text-align: left; color: #6b2a1a; cursor: pointer; transition: background 0.2s; }
+.pg-tab b { font-weight: 400; }
+.pg-tab:hover { background: rgba(255, 255, 255, 0.4); }
+.pg-tab.active { background: rgba(255, 255, 255, 0.65); font-weight: 600; }
+.pg-act { display: block; width: 100%; margin-top: 1.4rem; padding: 0.65rem 0.8rem; border: 0; border-radius: 99px; background: #e8714f; color: #fff; font: 500 0.88rem "Poppins", sans-serif; cursor: pointer; }
+.pg-act.danger { margin-top: 0.7rem; background: #fff; color: #b2563a; border: 2px solid #e2a98c; }
+.pg-act.danger.confirm { background: #d9433a; border-color: #d9433a; color: #fff; }
+.pg-act[hidden], .pg-modal[hidden], #pgViewAll[hidden] { display: none; }
+.pg-main { flex: 1; min-width: 0; padding: 0.4rem 2.4rem 0 0.6rem; }
+.pg-banner { padding: 1.6rem 2rem 1.9rem; border-radius: 0 0 1.8rem 1.8rem; background: linear-gradient(#ffe3d0, #ffdcc6); }
+.pg-banner h2 { margin: 0.9rem 0 0.9rem; font: 700 2.4rem "Poppins", sans-serif; line-height: 1.2; color: #6b2a1a; }
+.pg-banner p { margin: 0; font-size: 1.05rem; color: #8a4a38; }
+.pg-head { display: flex; align-items: center; justify-content: space-between; margin: 2rem 0.4rem 1.2rem; }
+.pg-head h3 { margin: 0; font: 700 1.3rem "Poppins", sans-serif; color: #5a1f10; }
+.pg-head button { border: 0; background: transparent; font: 700 1.15rem "Poppins", sans-serif; color: #8a3b28; cursor: pointer; }
+.pg-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.1rem; }
+.pg-card { display: flex; flex-direction: column; align-items: center; padding: 1.1rem 0.9rem 1rem; border: 2px solid #fcd2bc; border-radius: 1.7rem; background: #fff; text-align: center; font-family: "Poppins", sans-serif; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+.pg-card:hover { transform: translateY(-0.2rem); box-shadow: 0 0.6rem 1.4rem rgba(217, 100, 60, 0.18); }
+.pg-card.o { border-color: #a39a5c; }
+.pg-ico { display: flex; align-items: center; justify-content: center; width: 5.4rem; height: 5.4rem; border-radius: 50%; background: radial-gradient(#fff0e6, #fbc4a2); overflow: hidden; }
+.pg-card.o .pg-ico { background: radial-gradient(#d6d29c, #a39a5c); }
+.pg-ico img { width: 76%; height: 76%; object-fit: contain; }
+.pg-ico svg { width: 60%; height: 60%; color: #e8714f; }
+.pg-ctitle { margin: 1.2rem 0 0.7rem; min-height: 2.6em; font-weight: 700; font-size: 1.05rem; line-height: 1.3; color: #5a1f10; display: flex; align-items: center; }
+.pg-cdate { margin-bottom: 0.9rem; font-size: 0.92rem; color: #5a1f10; }
+.pg-go { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; width: 100%; margin-top: auto; padding: 0.55rem 1.1rem; border: 0; border-radius: 99px; background: #e8714f; color: #fff; font: 500 0.95rem "Poppins", sans-serif; cursor: pointer; }
+.pg-card.o .pg-go { background: #a39a5c; }
+.pg-go.done { background: #fff; color: #6b7a4a; border: 2px solid #b8c39a; }
+.pg-go.muted { background: #f0e4dc; color: #8a5a48; }
+.pg-tag { margin-bottom: 0.5rem; padding: 0.1rem 0.6rem; border-radius: 99px; background: #fdeee4; font-size: 0.68rem; font-weight: 600; color: #b2563a; }
+.pg-empty { grid-column: 1 / -1; padding: 2.4rem 1rem; text-align: center; color: #8a5a48; }
+.pg-modal { position: fixed; inset: 0; z-index: 85; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(90, 31, 16, 0.4); overflow-y: auto; }
+.pg-box { position: relative; width: min(34rem, 100%); max-height: 92vh; overflow-y: auto; box-sizing: border-box; padding: 1.8rem 1.8rem 1.5rem; border-radius: 1.6rem; background: #fff; font-family: "Poppins", sans-serif; color: #5a1f10; }
+.pg-x { position: absolute; top: 0.6rem; right: 0.9rem; border: 0; background: transparent; font-size: 1.8rem; line-height: 1; color: #b2563a; cursor: pointer; }
+.pg-dhead { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+.pg-dhead .pg-ico { flex: none; width: 4.6rem; height: 4.6rem; }
+.pg-dhead h3 { margin: 0; font: 700 1.35rem "Poppins", sans-serif; line-height: 1.25; }
+.pg-when { margin: 0 0 0.9rem; font-size: 0.9rem; color: #8a3b28; }
+.pg-box h4 { margin: 1rem 0 0.3rem; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #b2563a; }
+.pg-box p.pg-text { margin: 0; font-size: 0.95rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pg-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.pg-chip { padding: 0.25rem 0.7rem; border-radius: 99px; background: #fdeee4; font-size: 0.82rem; }
+.pg-people { margin: 0; padding-left: 1.1rem; font-size: 0.88rem; line-height: 1.6; }
+.pg-btns { display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: flex-end; margin-top: 1.4rem; }
+.pg-primary, .pg-ghost, .pg-warn { padding: 0.6rem 1.3rem; border-radius: 99px; font: 500 0.9rem "Poppins", sans-serif; cursor: pointer; }
+.pg-primary { border: 0; background: #e8714f; color: #fff; }
+.pg-primary:disabled { opacity: 0.6; cursor: default; }
+.pg-ghost { border: 2px solid #e2a98c; background: #fff; color: #b2563a; }
+.pg-warn { border: 2px solid #e2a98c; background: #fff; color: #b2563a; }
+.pg-warn.confirm { background: #d9433a; border-color: #d9433a; color: #fff; }
+.pg-formbox label { display: block; margin: 0.9rem 0 0.3rem; font-size: 0.8rem; font-weight: 600; color: #b2563a; }
+.pg-formbox h3 { margin: 0 0 0.4rem; font: 700 1.3rem "Poppins", sans-serif; }
+.pg-formbox input, .pg-formbox textarea { width: 100%; box-sizing: border-box; padding: 0.55rem 0.8rem; border: 2px solid #e2a98c; border-radius: 0.8rem; background: #fff; font: 400 0.92rem "Poppins", sans-serif; color: #5a1f10; outline: none; }
+.pg-formbox input:focus, .pg-formbox textarea:focus { border-color: #e8714f; }
+.pg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+.pg-icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(3.2rem, 1fr)); gap: 0.4rem; max-height: 9rem; overflow-y: auto; padding: 0.3rem; border: 2px solid #f1d9cc; border-radius: 0.8rem; }
+.pg-icons button { padding: 0.2rem; border: 2px solid transparent; border-radius: 0.7rem; background: #fdeee4; cursor: pointer; }
+.pg-icons button.sel { border-color: #e8714f; background: #fff; }
+.pg-icons img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; }
+.pg-note { grid-column: 1 / -1; font-size: 0.82rem; color: #8a5a48; }
+.pg-rewards { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 1rem; }
+.pg-rw { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.88rem; }
+.pg-rw div { display: flex; align-items: center; gap: 0.4rem; }
+.pg-rw button { width: 1.8rem; height: 1.8rem; border: 2px solid #e2a98c; border-radius: 50%; background: #fff; font-size: 1.1rem; line-height: 1; color: #b2563a; cursor: pointer; }
+.pg-rw span { min-width: 1.2rem; text-align: center; font-weight: 600; }
+.pg-err { margin: 0.8rem 0 0; font-size: 0.85rem; color: #d9433a; }
+@media (max-width: 820px) {
+  .pg-wrap { flex-direction: column; padding-bottom: 5rem; }
+  .pg-side { width: auto; min-height: 0; margin: 0; padding: 0.9rem 1rem; border-radius: 0 0 1.4rem 1.4rem; }
+  .pg-side h3 { margin: 0 0 0.6rem; font-size: 1.05rem; }
+  .pg-side nav { flex-direction: row; gap: 0.4rem; overflow-x: auto; }
+  .pg-tab { flex: none; padding: 0.4rem 0.8rem; border-radius: 99px; font-size: 0.82rem; white-space: nowrap; }
+  .pg-tab b { display: none; }
+  .pg-act { display: inline-block; width: auto; margin: 0.7rem 0.4rem 0 0; padding: 0.45rem 1rem; font-size: 0.8rem; }
+  .pg-main { padding: 0.8rem 1rem 0; }
+  .pg-banner { padding: 1rem 1.1rem 1.2rem; border-radius: 1.2rem; }
+  .pg-banner h2 { margin: 0.5rem 0; font-size: 1.6rem; }
+  .pg-banner p { font-size: 0.88rem; }
+  .pg-head { margin: 1.2rem 0.2rem 0.8rem; }
+  .pg-head h3 { font-size: 1.1rem; }
+  .pg-grid { grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+  .pg-card { padding: 0.8rem 0.6rem; border-radius: 1.2rem; }
+  .pg-ico { width: 4rem; height: 4rem; }
+  .pg-ctitle { margin: 0.7rem 0 0.4rem; font-size: 0.85rem; }
+  .pg-cdate { font-size: 0.72rem; }
+  .pg-go { padding: 0.45rem 0.7rem; font-size: 0.78rem; }
+  .pg-row, .pg-rewards { grid-template-columns: 1fr; }
+}
+#pgForm .pg-box { text-align: left; }
+#pgForm label { text-align: left; }
+#pgForm h3 { text-align: left; }
+#pgForm textarea { display: block; min-height: 4.2rem; height: auto; resize: vertical; }
+#pgForm input { height: auto; min-width: 0; }
+#pgForm .pg-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+#pgForm .pg-icons { min-height: 4rem; align-content: start; }
+#pgForm .pg-note { line-height: 1.4; padding: 0.5rem; }
+@media (max-width: 820px) { #pgForm .pg-row { grid-template-columns: minmax(0, 1fr); } }
+#pgFormEl, #pgFormEl label, #pgFormEl h3, #pgFormEl .pg-note { text-align: left !important; }
+#pgFormEl .pg-btns { justify-content: flex-end; }
+
+/* program icons bring their own background */
+.pg-ico.has, .pg-card.o .pg-ico.has { background: none; overflow: visible; }
+.pg-ico.has img { width: 100%; height: 100%; object-fit: contain; }
+
+/* ===== Get Professional Support / Counseling & Therapy ===== */
+#support, #counseling { background: #fdeee4; overflow-y: auto; padding: 0; }
+.ap-privacy { display: flex; align-items: center; gap: 0.9rem; margin: 1.4rem 0 0; padding: 0.9rem 1.3rem; border-radius: 99px; background: #fff; border: 2px solid #f3d5c4; color: #8a3b28; }
+.ap-privacy svg { flex: none; width: 1.6rem; height: 1.6rem; color: #e8714f; }
+.ap-privacy p { margin: 0; font-size: 0.92rem; line-height: 1.45; }
+.ap-cards { grid-template-columns: repeat(auto-fill, minmax(15rem, 20rem)); }
+.ap-body { margin-top: 1.6rem; }
+.ap-panel { padding: 1.5rem 1.7rem; border-radius: 1.6rem; background: #fff; border: 2px solid #f3d5c4; font-family: "Poppins", sans-serif; color: #5a1f10; }
+.ap-panel h3 { margin: 0 0 0.6rem; font: 700 1.15rem "Poppins", sans-serif; }
+.ap-panel p { margin: 0 0 0.8rem; font-size: 0.93rem; line-height: 1.55; }
+.ap-panel textarea, .ap-panel input { width: 100%; box-sizing: border-box; padding: 0.6rem 0.9rem; border: 2px solid #e2a98c; border-radius: 0.9rem; background: #fff; font: 400 0.92rem "Poppins", sans-serif; color: #5a1f10; outline: none; text-align: left; }
+.ap-panel textarea { display: block; min-height: 9rem; resize: vertical; }
+.ap-panel textarea:focus, .ap-panel input:focus { border-color: #e8714f; }
+.ap-panel label { display: block; margin: 0.9rem 0 0.3rem; font-size: 0.8rem; font-weight: 600; color: #b2563a; text-align: left; }
+.ap-note { font-size: 0.82rem; color: #8a5a48; }
+.ap-err { margin: 0.7rem 0 0; font-size: 0.85rem; color: #d9433a; }
+.ap-list { display: flex; flex-direction: column; gap: 0.7rem; }
+.ap-row { display: flex; align-items: center; gap: 1rem; padding: 0.9rem 1.2rem; border: 2px solid #f3d5c4; border-radius: 1.2rem; background: #fff; font-family: "Poppins", sans-serif; text-align: left; color: #5a1f10; cursor: pointer; transition: border-color 0.2s, transform 0.2s; }
+.ap-row:hover { border-color: #e8714f; transform: translateY(-0.1rem); }
+.ap-row b { display: block; font-size: 0.98rem; }
+.ap-row span.ap-snip { display: block; margin-top: 0.15rem; font-size: 0.82rem; color: #8a5a48; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 34rem; }
+.ap-row .ap-main { flex: 1; min-width: 0; }
+.ap-row time { font-size: 0.75rem; color: #8a5a48; white-space: nowrap; }
+.ap-pill { flex: none; padding: 0.15rem 0.7rem; border-radius: 99px; font-size: 0.72rem; font-weight: 600; background: #fde1d3; color: #b2563a; }
+.ap-pill.s { background: #dfe5c4; color: #5f6b36; }
+.ap-pill.c { background: #ece6e1; color: #7b6a60; }
+.ap-box { width: min(36rem, 100%); }
+.ap-box h3 { margin: 0 2rem 0.2rem 0; font: 700 1.25rem "Poppins", sans-serif; }
+.ap-box h4 { margin: 1rem 0 0.3rem; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #b2563a; text-align: left; }
+.ap-box p.pg-text { text-align: left; }
+.ap-box label { display: block; margin: 0.8rem 0 0.3rem; font-size: 0.8rem; font-weight: 600; color: #b2563a; text-align: left; }
+.ap-box input, .ap-box textarea { width: 100%; box-sizing: border-box; padding: 0.55rem 0.8rem; border: 2px solid #e2a98c; border-radius: 0.8rem; background: #fff; font: 400 0.9rem "Poppins", sans-serif; color: #5a1f10; outline: none; text-align: left; }
+.ap-box textarea { display: block; min-height: 3.6rem; resize: vertical; }
+.ap-box .ap-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.8rem; }
+.ap-reply { margin-top: 0.4rem; padding: 0.9rem 1.1rem; border-radius: 1rem; background: #fdeee4; }
+.ap-reply dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.35rem 0.9rem; font-size: 0.9rem; }
+.ap-reply dt { font-weight: 600; color: #b2563a; }
+.ap-reply dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+@media (max-width: 820px) {
+  .ap-privacy { border-radius: 1.2rem; padding: 0.8rem 1rem; }
+  .ap-cards { grid-template-columns: 1fr; }
+  .ap-panel { padding: 1.1rem; border-radius: 1.2rem; }
+  .ap-row { flex-wrap: wrap; gap: 0.4rem 0.7rem; }
+  .ap-row span.ap-snip { max-width: 60vw; }
+  .ap-box .ap-two { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* support landing, like the reference design */
+.sp-row { display: flex; gap: 1.2rem; align-items: stretch; margin-top: 2rem; }
+.sp-panel { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; padding: 1.1rem; border-radius: 1.8rem; background: #fff; }
+.sp-card { display: flex; flex-direction: column; align-items: center; padding: 1.2rem 0.9rem 1rem; border: 2px solid #fcd2bc; border-radius: 1.7rem; background: #fff; text-align: center; font-family: "Poppins", sans-serif; color: #8a3b28; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+.sp-card:hover { transform: translateY(-0.2rem); box-shadow: 0 0.6rem 1.4rem rgba(217, 100, 60, 0.18); }
+.sp-card.o { border-color: #a39a5c; }
+.sp-card .pg-ico { width: 5.6rem; height: 5.6rem; background: radial-gradient(#fbd0d0, #e9998a); color: #6f7e4a; }
+.sp-card.o .pg-ico { background: radial-gradient(#d6d29c, #a39a5c); color: #5f6b36; }
+.sp-card:nth-child(3) .pg-ico { color: #b2563a; }
+.sp-card .pg-ico svg { width: 62%; height: 62%; }
+.sp-card h4 { margin: 1.1rem 0 0.5rem; font: 700 1.02rem "Poppins", sans-serif; color: #8a3b28; }
+.sp-card p { margin: 0 0 1rem; font-size: 0.92rem; line-height: 1.4; }
+.sp-card .pg-go { font-size: 0.78rem; padding: 0.5rem 0.9rem; }
+.sp-secure { flex: none; width: 15rem; box-sizing: border-box; padding: 1.6rem 1.3rem; border: 2px solid #cfd0b3; border-radius: 1.8rem; background: #f3f2e4; text-align: center; font-family: "Poppins", sans-serif; color: #4f5c2a; }
+.sp-secure svg { width: 3.2rem; height: 3.2rem; color: #7b7f4f; }
+.sp-secure h4 { margin: 0.8rem 0 1rem; font: 700 1rem "Poppins", sans-serif; color: #3f5320; }
+.sp-secure p { margin: 0; font-size: 0.9rem; line-height: 1.5; text-align: justify; }
+#support .rs-leaf { position: fixed; right: 0; bottom: 0; width: 11rem; }
+@media (max-width: 820px) {
+  .sp-row { flex-direction: column; }
+  .sp-panel { grid-template-columns: 1fr; padding: 0.7rem; border-radius: 1.2rem; }
+  .sp-secure { width: auto; }
+  #support .rs-leaf { display: none; }
+}
+#support .rs-leaf.right { transform: none; animation: none; }
+.ap-panel input::placeholder, .ap-panel textarea::placeholder, .ap-box input::placeholder { color: #a8877a; opacity: 1; }

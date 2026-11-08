@@ -265,7 +265,7 @@ function renderNotifications() {
       const v = document.createElement("button");
       v.type = "button";
       v.className = "n-view";
-      v.textContent = n.kind === "message" ? "View message" : "View";
+      v.textContent = n.kind === "message" ? "View message" : n.kind === "resources" ? "Explore resources" : "View";
       v.addEventListener("click", (e) => { e.stopPropagation(); closeDropdowns(); openNotification(n); });
       foot.appendChild(v);
     }
@@ -474,7 +474,7 @@ function fly(flyers, start, end, inPlace) {
    ===================================================== */
 const pages = document.querySelectorAll(".page");
 const navLinks = document.querySelectorAll(".nav-link");
-const parentOf = { sense: "services", nurture: "services", resources: "services", checkin: "services", tracker: "services" };   // which nav link stays highlighted
+const parentOf = { sense: "services", nurture: "services", resources: "services", programs: "services", support: "services", counseling: "services", checkin: "services", tracker: "services" };   // which nav link stays highlighted
 
 function showView(name) {
   // employees fill in the Workday Check-In before they get into Mantra Sense
@@ -485,6 +485,10 @@ function showView(name) {
   if (name === "admin" && !(currentUser && currentUser.role === "admin")) name = "home";
   const target = document.getElementById(name);
   if (!target) return;
+  if (name === "programs" && typeof pgEnter === "function") pgEnter();
+  if (name === "counseling" && typeof apEnter === "function") apEnter();
+  if (name === "support" && typeof apSupportEnter === "function") apSupportEnter();
+  if (name === "resources" && typeof rsOpen === "function" && $("resources") && !$("resources").classList.contains("active")) rsOpen("all");
 
   const wasHome = !document.querySelector(".page.active");
   pages.forEach((p) => p.classList.toggle("active", p === target));   // "home" = no page on top
@@ -666,7 +670,7 @@ async function api(action, payload = {}) {
   if (action !== "icon" && data.v !== BACKEND_VERSION) throw new Error("outdated");
   return data;
 }
-const BACKEND_VERSION = 16;
+const BACKEND_VERSION = 22;
 
 const adminLink = document.getElementById("adminLink");
 const teamBtn   = document.getElementById("teamBtn");
@@ -757,7 +761,7 @@ ckSubmit.addEventListener("click", async () => {
     checkinDone = true;
     // question 3, first answer: tell the user on the bell (more to come later)
     if (answers[3] === 1) {
-      addNotification({ title: "Support resources", text: "Thanks for asking. Information about available support resources will appear here soon." });
+      addNotification({ title: "Support resources", text: "Thanks for asking. Browse articles and books on stress, sleep, work-life balance and more.", kind: "resources", thread: "resources" });
     }
     addNotification({ title: "Check-in submitted", text: "Thank you for completing your Workday Check-In." });
     setCkNote("");
@@ -1159,6 +1163,9 @@ document.querySelectorAll("[data-view=admin]").forEach((a) => a.addEventListener
 function openNotification(n) {
   if (!currentUser || !n.thread) return;
   if (n.kind === "garden") { showView("garden"); return; }
+  if (n.kind === "program") { showView("programs"); return; }
+  if (n.kind === "resources") { showView("resources"); return; }
+  if (n.kind === "appointment") { apKind = String(n.thread).indexOf("a:o:") === 0 ? "other" : "counseling"; showView("counseling"); return; }
   if (n.kind === "concern") { trPendingOpen = String(n.thread).replace(/^c:/, ""); showView("tracker"); return; }
   if (currentUser.role === "employee") openMessages();
   else viewEmployee(n.thread);
@@ -2336,3 +2343,391 @@ async function rsRead(b) {
 $("rsRClose").addEventListener("click", rsClose);
 $("rsRPrev").addEventListener("click", () => rsBook && rsBook.rendition.prev());
 $("rsRNext").addEventListener("click", () => rsBook && rsBook.rendition.next());
+
+
+/* ---------- Join a Program ---------- */
+const PG_ITEMS = ["can", "mush", "fert", "lady"];
+let pgProgs = [], pgTab = "upcoming", pgAll = false, pgPoll = null, pgIcons = null, pgPick = "", pgRew = {}, pgEditId = null, pgSaving = false;
+// icons come through the script as the original PNG (Drive's own thumbnails turn transparency black)
+const pgIconCache = new Map(), pgIconQ = []; let pgIconRun = 0;
+function pgIconData(id) {
+  if (pgIconCache.has(id)) return pgIconCache.get(id);
+  const p = new Promise((res, rej) => { pgIconQ.push({ id, res, rej }); pgIconPump(); });
+  pgIconCache.set(id, p);
+  p.catch(() => pgIconCache.delete(id));
+  return p;
+}
+function pgIconPump() {
+  while (pgIconRun < 3 && pgIconQ.length) {
+    const t = pgIconQ.shift(); pgIconRun++;
+    api("pIcon", { id: t.id }).then((r) => t.res("data:" + r.mime + ";base64," + r.b64), t.rej).finally(() => { pgIconRun--; pgIconPump(); });
+  }
+}
+function pgLoadIcon(img, id, onFail) {
+  pgIconData(id).then((u) => { img.src = u; }, () => { if (onFail) onFail(); });
+}
+const pgIsPast = (p) => p.closed || (p.end && p.end < Date.now());
+const pgRole = () => (currentUser ? currentUser.role : "");
+function pgFmt(ms) {
+  const d = new Date(ms);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) + " - " + d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+}
+function pgToast(msg) {
+  const old = document.querySelector(".nu-toast"); if (old) old.remove();
+  const t = document.createElement("div"); t.className = "nu-toast"; t.style.zIndex = 99; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 2600);
+}
+const PG_LOTUS = '<svg viewBox="0 0 80 80" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M40 16c8 8 10 20 0 34-10-14-8-26 0-34Z"/><path d="M40 50C28 50 16 42 14 28c14 0 24 8 26 22ZM40 50c12 0 24-8 26-22-14 0-24 8-26 22Z"/><path d="M18 56c8 8 36 8 44 0"/></g></svg>';
+function pgIconEl(p) {
+  const d = document.createElement("span"); d.className = "pg-ico";
+  if (p.icon) { const i = new Image(); i.alt = ""; i.referrerPolicy = "no-referrer"; i.onload = () => d.classList.add("has"); pgLoadIcon(i, p.icon, () => { d.innerHTML = PG_LOTUS; }); d.appendChild(i); }
+  else d.innerHTML = PG_LOTUS;
+  return d;
+}
+function pgEnter() {
+  pgTab = "upcoming"; pgAll = false;
+  $("pgNew").hidden = pgRole() !== "hr";
+  $("pgResetAll").hidden = pgRole() !== "admin";
+  document.querySelectorAll(".pg-tab[data-pg]").forEach((b) => b.classList.toggle("active", b.dataset.pg === pgTab));
+  pgProgs = [];
+  $("pgGrid").innerHTML = '<div class="pg-empty">Loading programs…</div>';
+  pgRefresh(true);
+  if (pgPoll) clearInterval(pgPoll);
+  pgPoll = setInterval(() => {
+    if (!document.hidden && $("programs").classList.contains("active") && $("pgDetail").hidden && $("pgForm").hidden) pgRefresh(false);
+  }, 20000);
+}
+function pgRefresh(loud) {
+  return api("pList").then((r) => {
+    const sig = JSON.stringify(r.progs);
+    if (sig !== pgRefresh.sig) { pgRefresh.sig = sig; pgProgs = r.progs; pgRender(); }
+  }).catch((e) => {
+    if (!loud) return;
+    $("pgGrid").innerHTML = '<div class="pg-empty"></div>';
+    $("pgGrid").firstChild.textContent = e.message === "outdated" ? "The script needs the latest update." : "Programs could not be loaded.";
+  });
+}
+function pgRender() {
+  const past = pgTab === "past";
+  let list = pgProgs.filter((p) => pgIsPast(p) === past);
+  list.sort((a, b) => (past ? b.start - a.start : a.start - b.start));
+  $("pgListTitle").textContent = past ? "Past Programs" : "Upcoming Programs";
+  const more = list.length > 4;
+  $("pgViewAll").hidden = !more;
+  $("pgViewAll").innerHTML = (pgAll ? "Show less" : "View all") + " <b>&rarr;</b>";
+  if (more && !pgAll) list = list.slice(0, 4);
+  const grid = $("pgGrid"); grid.innerHTML = "";
+  if (!list.length) { grid.innerHTML = '<div class="pg-empty"></div>'; grid.firstChild.textContent = past ? "No past programs yet." : pgRole() === "hr" ? "No programs yet. Use “+ New program” to set one." : "No upcoming programs right now. Check back soon!"; return; }
+  list.forEach((p, i) => {
+    const card = document.createElement("div");
+    card.className = "pg-card" + (i % 2 ? " o" : ""); card.tabIndex = 0; card.setAttribute("role", "button");
+    card.appendChild(pgIconEl(p));
+    const t = document.createElement("div"); t.className = "pg-ctitle"; t.textContent = p.title; card.appendChild(t);
+    const d = document.createElement("div"); d.className = "pg-cdate"; d.textContent = pgFmt(p.start); card.appendChild(d);
+    if (pgRole() !== "employee" && past && !p.closed) { const g = document.createElement("span"); g.className = "pg-tag"; g.textContent = "Ended - not closed yet"; card.appendChild(g); }
+    const b = document.createElement("button"); b.type = "button"; b.className = "pg-go";
+    const canJoin = pgRole() !== "admin" && !past;
+    if (canJoin && !p.joined) { b.innerHTML = "<span>Save my spot</span><b>&rarr;</b>"; b.addEventListener("click", (e) => { e.stopPropagation(); pgJoin(p, false, b); }); }
+    else if (p.joined) { b.className += " done"; b.innerHTML = "<span>" + (past ? "You joined" : "Joined") + "</span><b>&#10003;</b>"; }
+    else { b.className += past ? " muted" : ""; b.innerHTML = "<span>View details</span><b>&rarr;</b>"; }
+    card.appendChild(b);
+    card.addEventListener("click", () => pgDetail(p.id));
+    card.addEventListener("keydown", (e) => { if (e.key === "Enter") pgDetail(p.id); });
+    grid.appendChild(card);
+  });
+}
+async function pgJoin(p, leave, btn) {
+  if (btn) btn.disabled = true;
+  try {
+    const r = await api("pJoin", { id: p.id, leave: !!leave });
+    const i = pgProgs.findIndex((x) => x.id === p.id);
+    if (i >= 0) pgProgs[i] = { ...pgProgs[i], ...r.prog };
+    pgRefresh.sig = JSON.stringify(pgProgs);
+    pgRender();
+    if (!$("pgDetail").hidden) pgDetail(p.id);
+    pgToast(leave ? "You left the program." : "Your spot is saved!");
+    if (!leave) addNotification({ title: "You joined a program", text: "You joined " + p.title + " on " + pgFmt(p.start) + ".", kind: "program", thread: "p:" + p.id });
+  } catch (e) {
+    pgToast(e.message === "outdated" ? "The script needs the latest update." : e.message);
+    if (btn) btn.disabled = false;
+    pgRefresh(false);
+  }
+}
+function pgSection(box, label, text) {
+  const h = document.createElement("h4"); h.textContent = label; box.appendChild(h);
+  const p = document.createElement("p"); p.className = "pg-text"; p.textContent = text; box.appendChild(p);
+}
+function pgDetail(id) {
+  const p = pgProgs.find((x) => x.id === id); if (!p) return;
+  const box = $("pgDetailBox"); box.innerHTML = "";
+  const x = document.createElement("button"); x.type = "button"; x.className = "pg-x"; x.setAttribute("data-pgclose", ""); x.innerHTML = "&times;"; box.appendChild(x);
+  const head = document.createElement("div"); head.className = "pg-dhead"; head.appendChild(pgIconEl(p));
+  const h = document.createElement("h3"); h.textContent = p.title; head.appendChild(h); box.appendChild(head);
+  const when = document.createElement("p"); when.className = "pg-when";
+  when.textContent = (p.end && p.end !== p.start ? pgFmt(p.start) + "  to  " + pgFmt(p.end) : pgFmt(p.start)) + (p.closed ? "  -  Closed" : pgIsPast(p) ? "  -  Ended" : "");
+  box.appendChild(when);
+  if (p.description) pgSection(box, "About this program", p.description);
+  if (p.details) pgSection(box, "Further details", p.details);
+  const rw = PG_ITEMS.filter((k) => p.rewards && p.rewards[k]);
+  if (rw.length) {
+    const h4 = document.createElement("h4"); h4.textContent = "Garden rewards for everyone who joins"; box.appendChild(h4);
+    const c = document.createElement("div"); c.className = "pg-chips";
+    rw.forEach((k) => { const s = document.createElement("span"); s.className = "pg-chip"; s.textContent = p.rewards[k] + " × " + GD_NAMES[k]; c.appendChild(s); });
+    box.appendChild(c);
+    const n = document.createElement("p"); n.className = "pg-text"; n.style.cssText = "margin-top:.4rem;font-size:.8rem;color:#8a5a48";
+    n.textContent = p.closed ? "These were given to everyone who joined." : "Given once the program is closed.";
+    box.appendChild(n);
+  }
+  const h5 = document.createElement("h4"); h5.textContent = "Participants"; box.appendChild(h5);
+  const cnt = document.createElement("p"); cnt.className = "pg-text"; cnt.textContent = p.count + (p.count === 1 ? " person has" : " people have") + " joined" + (p.joined ? " (including you)." : "."); box.appendChild(cnt);
+  if (p.people && p.people.length) {
+    const ul = document.createElement("ul"); ul.className = "pg-people";
+    p.people.forEach((q) => { const li = document.createElement("li"); li.textContent = q.name + " (" + q.role + ")"; ul.appendChild(li); });
+    box.appendChild(ul);
+  }
+  const btns = document.createElement("div"); btns.className = "pg-btns"; box.appendChild(btns);
+  const mk = (cls, label) => { const b = document.createElement("button"); b.type = "button"; b.className = cls; b.textContent = label; btns.appendChild(b); return b; };
+  const role = pgRole(), past = pgIsPast(p);
+  if (role === "hr" && !p.closed) {
+    armConfirm(mk("pg-warn", "Delete"), "Delete", "Sure?", async () => { try { await api("pDelete", { id: p.id }); pgModal("pgDetail", false); pgRefresh.sig = ""; await pgRefresh(true); pgToast("Program deleted."); } catch (e) { pgToast(e.message); } });
+    mk("pg-ghost", "Edit").addEventListener("click", () => pgOpenForm(p));
+  }
+  if (role !== "employee" && !p.closed) {
+    armConfirm(mk("pg-warn", "Close program"), "Close program", "Close and give rewards?", async () => {
+      try { const r = await api("pClose", { id: p.id }); pgModal("pgDetail", false); pgRefresh.sig = ""; await pgRefresh(true); pgToast(r.given ? "Program closed. Rewards sent to " + r.given + (r.given === 1 ? " person." : " people.") : "Program closed."); } catch (e) { pgToast(e.message); }
+    });
+  }
+  if (role !== "admin" && !past) {
+    const b = mk(p.joined ? "pg-ghost" : "pg-primary", p.joined ? "Leave program" : "Save my spot");
+    b.addEventListener("click", () => pgJoin(p, p.joined, b));
+  }
+  pgModal("pgDetail", true);
+}
+function pgModal(id, on) { $(id).hidden = !on; }
+document.addEventListener("click", (e) => {
+  if (e.target.closest("[data-pgclose]") || e.target.classList.contains("pg-modal")) { pgModal("pgDetail", false); pgModal("pgForm", false); }
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { pgModal("pgDetail", false); pgModal("pgForm", false); } });
+document.querySelectorAll(".pg-tab[data-pg]").forEach((b) => b.addEventListener("click", () => {
+  pgTab = b.dataset.pg; pgAll = false;
+  document.querySelectorAll(".pg-tab[data-pg]").forEach((x) => x.classList.toggle("active", x === b));
+  pgRender();
+}));
+$("pgViewAll").addEventListener("click", () => { pgAll = !pgAll; pgRender(); });
+armConfirm($("pgResetAll"), "Reset all programs", "Sure? Deletes all programs", async () => {
+  try { await api("pReset"); pgRefresh.sig = ""; await pgRefresh(true); pgToast("All programs and participation were reset."); } catch (e) { pgToast(e.message); }
+});
+
+/* HR: set or edit a program */
+const pgLocal = (ms) => new Date(ms - new Date(ms).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+function pgDrawIcons() {
+  const box = $("pgIcons"); box.innerHTML = "";
+  if (!pgIcons || !pgIcons.length) { box.innerHTML = '<span class="pg-note">No icons found in the icon folder.</span>'; return; }
+  pgIcons.forEach((ic) => {
+    const b = document.createElement("button"); b.type = "button"; b.title = ic.name; b.className = ic.id === pgPick ? "sel" : "";
+    const i = new Image(); i.alt = ic.name; i.referrerPolicy = "no-referrer"; pgLoadIcon(i, ic.id, () => { i.style.visibility = "hidden"; }); b.appendChild(i);
+    b.addEventListener("click", () => { pgPick = pgPick === ic.id ? "" : ic.id; pgDrawIcons(); });
+    box.appendChild(b);
+  });
+}
+function pgDrawRewards() {
+  const box = $("pgRewards"); box.innerHTML = "";
+  PG_ITEMS.forEach((k) => {
+    const row = document.createElement("div"); row.className = "pg-rw";
+    const name = document.createElement("span"); name.style.cssText = "min-width:0;text-align:left;font-weight:400"; name.textContent = GD_NAMES[k];
+    const ctl = document.createElement("div");
+    const m = document.createElement("button"), n = document.createElement("span"), a = document.createElement("button");
+    m.type = a.type = "button"; m.textContent = "−"; a.textContent = "+"; n.textContent = pgRew[k] || 0;
+    m.addEventListener("click", () => { pgRew[k] = Math.max(0, (pgRew[k] || 0) - 1); n.textContent = pgRew[k]; });
+    a.addEventListener("click", () => { pgRew[k] = Math.min(10, (pgRew[k] || 0) + 1); n.textContent = pgRew[k]; });
+    ctl.append(m, n, a); row.append(name, ctl); box.appendChild(row);
+  });
+}
+function pgOpenForm(p) {
+  pgModal("pgDetail", false);
+  pgEditId = p ? p.id : null; pgPick = p ? p.icon : ""; pgRew = p ? { ...p.rewards } : {};
+  $("pgFormTitle").textContent = p ? "Edit program" : "New program";
+  $("pgfTitle").value = p ? p.title : "";
+  const s = p ? p.start : new Date(new Date().setHours(10, 0, 0, 0)).getTime() + 86400000;
+  $("pgfStart").value = pgLocal(s); $("pgfEnd").value = pgLocal(p ? p.end || p.start : s + 7200000);
+  $("pgfDesc").value = p ? p.description : ""; $("pgfDetails").value = p ? p.details : "";
+  $("pgfErr").hidden = true; $("pgfSave").disabled = false;
+  pgDrawRewards(); pgDrawIcons(); pgModal("pgForm", true);
+  api("pIcons").then((r) => { pgIcons = r.icons; pgDrawIcons(); }).catch((e) => { $("pgIcons").innerHTML = '<span class="pg-note"></span>'; $("pgIcons").firstChild.textContent = "Icons could not be loaded: " + e.message; });
+}
+$("pgNew").addEventListener("click", () => pgOpenForm(null));
+$("pgFormEl").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (pgSaving) return;
+  const err = $("pgfErr"); err.hidden = true;
+  const start = new Date($("pgfStart").value).getTime(), end = new Date($("pgfEnd").value).getTime();
+  if (!isFinite(start) || !isFinite(end)) { err.textContent = "Please set both dates."; err.hidden = false; return; }
+  if (end < start) { err.textContent = "The end must not be before the start."; err.hidden = false; return; }
+  pgSaving = true; $("pgfSave").disabled = true;
+  try {
+    await api("pSave", { id: pgEditId, title: $("pgfTitle").value, icon: pgPick, start, end, description: $("pgfDesc").value, details: $("pgfDetails").value, rewards: pgRew });
+    pgModal("pgForm", false); pgRefresh.sig = ""; await pgRefresh(true);
+    pgToast(pgEditId ? "Program updated." : "Program set. Everyone was notified.");
+  } catch (ex) { err.textContent = ex.message === "outdated" ? "The script needs the latest update." : ex.message; err.hidden = false; }
+  pgSaving = false; $("pgfSave").disabled = false;
+});
+
+
+/* ---------- Get Professional Support / Counseling & Therapy ---------- */
+let apKind = "counseling", apAll = [], apTab = "current", apSig = "", apPoll = null, apSending = false;
+const apStaff = () => pgRole() === "hr" || pgRole() === "admin";
+function apSupportEnter() { $("apCardBtn").textContent = apStaff() ? "View requests" : "Request an appointment"; $("apOtherBtn").textContent = apStaff() ? "View requests" : "Request a service"; }
+const apGo = (k) => { apKind = k; showView("counseling"); };
+$("apCard").addEventListener("click", () => apGo("counseling"));
+$("apCard").addEventListener("keydown", (e) => { if (e.key === "Enter") apGo("counseling"); });
+$("apOtherCard").addEventListener("click", () => apGo("other"));
+$("apOtherCard").addEventListener("keydown", (e) => { if (e.key === "Enter") apGo("other"); });
+function apEnter() {
+  apTab = apStaff() ? "open" : "current"; apSig = "";
+  const other = apKind === "other";
+  $("apTitle").textContent = $("apSideTitle").textContent = other ? "Other Services" : "Counseling & Therapy";
+  $("apResetAll").hidden = pgRole() !== "admin";
+  $("apLead").textContent = apStaff() ? "Review requests, reply with the appointment details, and close them when done." : other ? "Tell us what kind of help you need. Someone from HR will review it and reply with the details." : "Share what is on your mind. Someone from HR will review it and reply with your appointment.";
+  apTabs(); $("apBody").innerHTML = '<div class="pg-empty">Loading…</div>';
+  apRefresh(true);
+  if (apPoll) clearInterval(apPoll);
+  apPoll = setInterval(() => { if (!document.hidden && $("counseling").classList.contains("active") && $("apModal").hidden && !apTyping()) apRefresh(false); }, 15000);
+}
+const apTyping = () => { const a = document.activeElement; return a && $("apBody").contains(a) && (a.tagName === "TEXTAREA" || a.tagName === "INPUT"); };
+function apTabs() {
+  const tabs = apStaff() ? [["open", "Open requests"], ["closed", "Closed"]] : [["current", "My request"], ["history", "History"]];
+  const nav = $("apTabs"); nav.innerHTML = "";
+  tabs.forEach(([k, label]) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "pg-tab" + (apTab === k ? " active" : "");
+    b.innerHTML = "<span></span><b>&rarr;</b>"; b.firstChild.textContent = label;
+    b.addEventListener("click", () => { apTab = k; apTabs(); apRender(); });
+    nav.appendChild(b);
+  });
+  const back = document.createElement("button"); back.type = "button"; back.className = "pg-tab"; back.setAttribute("data-view", "support");
+  back.innerHTML = "<span>Get Professional Support</span><b>&larr;</b>"; back.addEventListener("click", () => showView("support")); nav.appendChild(back);
+}
+function apRefresh(loud) {
+  return api("aList").then((r) => {
+    const sig = JSON.stringify(r.list);
+    if (sig !== apSig) { apSig = sig; apAll = r.list; apRender(); }
+  }).catch((e) => {
+    if (!loud) return;
+    $("apBody").innerHTML = '<div class="pg-empty"></div>';
+    $("apBody").firstChild.textContent = e.message === "outdated" ? "The script needs the latest update." : "Appointments could not be loaded.";
+  });
+}
+function apPill(a) { const s = document.createElement("span"); s.className = "ap-pill" + (a.status === "Scheduled" ? " s" : a.status === "Closed" ? " c" : ""); s.textContent = a.status; return s; }
+function apReplyBox(a) {
+  const box = document.createElement("div"); box.className = "ap-reply";
+  const dl = document.createElement("dl");
+  [["From", a.hrName], ["Message", a.message], ["Date", a.when ? pgFmt(a.when) : ""], ["Where", a.location], ["Service provider", a.counselor], ["About the session", a.note]].forEach(([k, v]) => {
+    if (!v) return;
+    const dt = document.createElement("dt"), dd = document.createElement("dd"); dt.textContent = k; dd.textContent = v; dl.append(dt, dd);
+  });
+  box.appendChild(dl); return box;
+}
+const apKindOf = (a) => (a.kind === "other" ? "other" : "counseling");
+function apRender() {
+  const apList = apAll.filter((a) => apKindOf(a) === apKind);
+  const body = $("apBody"); body.innerHTML = "";
+  if (apStaff()) {
+    const closed = apTab === "closed";
+    const list = apList.filter((a) => (a.status === "Closed") === closed).sort((x, y) => (x.status === "Pending" ? 0 : 1) - (y.status === "Pending" ? 0 : 1) || y.created - x.created);
+    if (!list.length) { body.innerHTML = '<div class="pg-empty"></div>'; body.firstChild.textContent = closed ? "No closed requests." : "No open requests right now."; return; }
+    const wrap = document.createElement("div"); wrap.className = "ap-list";
+    list.forEach((a) => {
+      const row = document.createElement("button"); row.type = "button"; row.className = "ap-row";
+      const m = document.createElement("div"); m.className = "ap-main";
+      const n = document.createElement("b"); n.textContent = a.name + (a.service ? "  ·  " + a.service : ""); const sn = document.createElement("span"); sn.className = "ap-snip"; sn.textContent = a.reason;
+      m.append(n, sn);
+      const t = document.createElement("time"); t.textContent = pgFmt(a.created);
+      row.append(m, apPill(a), t); row.addEventListener("click", () => apOpen(a.id)); wrap.appendChild(row);
+    });
+    body.appendChild(wrap); return;
+  }
+  // employee
+  const open = apList.find((a) => a.status !== "Closed");
+  if (apTab === "history") {
+    const list = apList.filter((a) => a.status === "Closed");
+    if (!list.length) { body.innerHTML = '<div class="pg-empty"></div>'; body.firstChild.textContent = "No past requests yet."; return; }
+    const wrap = document.createElement("div"); wrap.className = "ap-list";
+    list.forEach((a) => {
+      const row = document.createElement("button"); row.type = "button"; row.className = "ap-row";
+      const m = document.createElement("div"); m.className = "ap-main";
+      const n = document.createElement("b"); n.textContent = (a.service ? a.service + "  ·  " : "Request on ") + pgFmt(a.created); const sn = document.createElement("span"); sn.className = "ap-snip"; sn.textContent = a.reason;
+      m.append(n, sn); row.append(m, apPill(a)); row.addEventListener("click", () => apOpen(a.id)); wrap.appendChild(row);
+    });
+    body.appendChild(wrap); return;
+  }
+  const panel = document.createElement("div"); panel.className = "ap-panel"; body.appendChild(panel);
+  if (!open) {
+    const svc = apKind === "other" ? '<label for="apService">Service type</label><input id="apService" maxlength="80" placeholder="What professional help do you need? e.g. financial counseling, legal advice, EAP"><label for="apReason" style="margin-top:1rem">Message</label>' : "";
+    panel.innerHTML = '<h3>What would you like to share?</h3><p>Tell us what is going on and what kind of support you are looking for.</p>' + svc + '<textarea id="apReason" maxlength="2000" placeholder="Write here…"></textarea><p class="ap-note" style="margin-top:.6rem">You can send one request at a time. You will be notified when HR replies.</p><p class="ap-err" id="apErr" hidden></p><div class="pg-btns"><button type="button" class="pg-primary" id="apSend">Send request</button></div>';
+    $("apSend").addEventListener("click", apSend); return;
+  }
+  const h = document.createElement("h3"); h.textContent = "Your request"; panel.appendChild(h);
+  const pl = document.createElement("p"); pl.appendChild(apPill(open)); const when = document.createElement("span"); when.className = "ap-note"; when.textContent = "  Sent " + pgFmt(open.created); pl.appendChild(when); panel.appendChild(pl);
+  if (open.service) { const sv = document.createElement("p"); sv.innerHTML = "<b>Service type:</b> <span></span>"; sv.lastChild.textContent = open.service; panel.appendChild(sv); }
+  const rp = document.createElement("p"); rp.style.whiteSpace = "pre-wrap"; rp.style.overflowWrap = "anywhere"; rp.textContent = open.reason; panel.appendChild(rp);
+  if (open.status === "Pending") { const w = document.createElement("p"); w.className = "ap-note"; w.textContent = "Waiting for HR to review. You will be notified when they reply. You can send a new request once this one is closed."; panel.appendChild(w); }
+  else { const rh = document.createElement("h3"); rh.textContent = open.status === "Scheduled" ? "Your appointment" : "Reply from HR"; rh.style.marginTop = "1rem"; panel.appendChild(rh); panel.appendChild(apReplyBox(open)); const w = document.createElement("p"); w.className = "ap-note"; w.style.marginTop = "0.8rem"; w.textContent = "You can send a new request once HR closes this one."; panel.appendChild(w); }
+}
+async function apSend() {
+  if (apSending) return;
+  const v = $("apReason").value.trim(), err = $("apErr"); err.hidden = true;
+  if (!v) { err.textContent = "Please write something first."; err.hidden = false; return; }
+  apSending = true; $("apSend").disabled = true;
+  const svc = $("apService") ? $("apService").value.trim() : "";
+  if (apKind === "other" && !svc) { err.textContent = "Please say what kind of help you need."; err.hidden = false; apSending = false; $("apSend").disabled = false; return; }
+  try { await api("aRequest", { reason: v, service: svc, kind: apKind }); pgToast("Your request was sent to HR."); apSig = ""; await apRefresh(true); }
+  catch (e) { err.textContent = e.message === "open" ? "You already have an open request." : e.message === "outdated" ? "The script needs the latest update." : e.message; err.hidden = false; apRefresh(false); }
+  apSending = false; if ($("apSend")) $("apSend").disabled = false;
+}
+function apOpen(id) {
+  const a = apAll.find((x) => x.id === id); if (!a) return;
+  const box = $("apModalBox"); box.innerHTML = "";
+  const x = document.createElement("button"); x.type = "button"; x.className = "pg-x"; x.innerHTML = "&times;"; x.addEventListener("click", () => { $("apModal").hidden = true; }); box.appendChild(x);
+  const h = document.createElement("h3"); h.textContent = apStaff() ? a.name : "Request on " + pgFmt(a.created); box.appendChild(h);
+  const sub = document.createElement("p"); sub.className = "pg-when"; sub.appendChild(apPill(a)); const s2 = document.createElement("span"); s2.textContent = "  " + pgFmt(a.created); sub.appendChild(s2); box.appendChild(sub);
+  if (a.service) { const hs = document.createElement("h4"); hs.textContent = "Service type"; box.appendChild(hs); const ps = document.createElement("p"); ps.className = "pg-text"; ps.textContent = a.service; box.appendChild(ps); }
+  const h4 = document.createElement("h4"); h4.textContent = apStaff() ? "What they shared" : "What you shared"; box.appendChild(h4);
+  const p = document.createElement("p"); p.className = "pg-text"; p.textContent = a.reason; box.appendChild(p);
+  const hasReply = a.message || a.when || a.location || a.counselor || a.note;
+  if (hasReply && !(pgRole() === "hr" && a.status !== "Closed")) { const h5 = document.createElement("h4"); h5.textContent = "Reply and appointment"; box.appendChild(h5); box.appendChild(apReplyBox(a)); }
+  const btns = document.createElement("div"); btns.className = "pg-btns";
+  if (pgRole() === "hr" && a.status !== "Closed") {
+    const f = (id, label, el) => { const l = document.createElement("label"); l.textContent = label; l.htmlFor = id; el.id = id; box.append(l, el); return el; };
+    const msg = f("apfMsg", "Short message", Object.assign(document.createElement("textarea"), { maxLength: 600, value: a.message }));
+    const two = document.createElement("div"); two.className = "ap-two"; box.appendChild(two);
+    const mk = (id, label, el) => { const d = document.createElement("div"); const l = document.createElement("label"); l.textContent = label; l.htmlFor = id; el.id = id; d.append(l, el); two.appendChild(d); return el; };
+    const when = mk("apfWhen", "Appointment date and time", Object.assign(document.createElement("input"), { type: "datetime-local", value: a.when ? pgLocal(a.when) : "" }));
+    const loc = mk("apfLoc", "Location", Object.assign(document.createElement("input"), { maxLength: 200, value: a.location }));
+    const two2 = document.createElement("div"); two2.className = "ap-two"; box.appendChild(two2);
+    const mk2 = (id, label, el) => { const d = document.createElement("div"); const l = document.createElement("label"); l.textContent = label; l.htmlFor = id; el.id = id; d.append(l, el); two2.appendChild(d); return el; };
+    const cn = mk2("apfName", "Service provider", Object.assign(document.createElement("input"), { maxLength: 120, value: a.counselor }));
+    const note = f("apfNote", "Short description for the service provider", Object.assign(document.createElement("textarea"), { maxLength: 600, value: a.note }));
+    const err = document.createElement("p"); err.className = "ap-err"; err.hidden = true; box.appendChild(err);
+    const save = document.createElement("button"); save.type = "button"; save.className = "pg-primary"; save.textContent = a.status === "Pending" ? "Send reply" : "Update reply";
+    save.addEventListener("click", async () => {
+      err.hidden = true; save.disabled = true;
+      try { await api("aReply", { id: a.id, message: msg.value, when: when.value ? new Date(when.value).getTime() : 0, location: loc.value, counselor: cn.value, note: note.value }); $("apModal").hidden = true; pgToast("Reply sent."); apSig = ""; await apRefresh(true); }
+      catch (e) { err.textContent = e.message; err.hidden = false; save.disabled = false; }
+    });
+    btns.appendChild(save);
+  }
+  if (apStaff() && a.status !== "Closed") {
+    const cl = document.createElement("button"); cl.type = "button"; cl.className = "pg-warn"; cl.textContent = "Close request"; btns.prepend(cl);
+    armConfirm(cl, "Close request", "Close it? 2 Mushrooms are sent", async () => {
+      try { await api("aClose", { id: a.id }); $("apModal").hidden = true; pgToast("Request closed. Mushrooms sent."); apSig = ""; await apRefresh(true); } catch (e) { pgToast(e.message); }
+    });
+  }
+  if (btns.children.length) box.appendChild(btns);
+  $("apModal").hidden = false;
+}
+$("apModal").addEventListener("click", (e) => { if (e.target === $("apModal")) $("apModal").hidden = true; });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("apModal").hidden = true; });
+armConfirm($("apResetAll"), "Reset all appointments", "Sure? Deletes all requests", async () => {
+  try { await api("aReset"); apSig = ""; await apRefresh(true); pgToast("All appointments were reset."); } catch (e) { pgToast(e.message); }
+});
+
+document.querySelectorAll("[data-soon]").forEach((el) => el.addEventListener("click", () => pgToast(el.dataset.soon)));
