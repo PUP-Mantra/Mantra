@@ -474,7 +474,7 @@ function fly(flyers, start, end, inPlace) {
    ===================================================== */
 const pages = document.querySelectorAll(".page");
 const navLinks = document.querySelectorAll(".nav-link");
-const parentOf = { sense: "services", nurture: "services", checkin: "services", tracker: "services" };   // which nav link stays highlighted
+const parentOf = { sense: "services", nurture: "services", resources: "services", checkin: "services", tracker: "services" };   // which nav link stays highlighted
 
 function showView(name) {
   // employees fill in the Workday Check-In before they get into Mantra Sense
@@ -666,7 +666,7 @@ async function api(action, payload = {}) {
   if (action !== "icon" && data.v !== BACKEND_VERSION) throw new Error("outdated");
   return data;
 }
-const BACKEND_VERSION = 12;
+const BACKEND_VERSION = 15;
 
 const adminLink = document.getElementById("adminLink");
 const teamBtn   = document.getElementById("teamBtn");
@@ -2189,3 +2189,136 @@ document.querySelectorAll(".gd-fab").forEach((b) => b.addEventListener("click", 
 $("gdPack").addEventListener("click", () => {
   if (!$("gdItems").hidden) { $("garden").dataset.open = ""; document.querySelectorAll(".gd-fab").forEach((x) => x.classList.remove("on")); }
 });
+
+/* mantra Nurture buttons (content pages are still to come) */
+document.querySelectorAll("[data-nu]").forEach((b) => b.addEventListener("click", () => {
+  const old = document.querySelector(".nu-toast"); if (old) old.remove();
+  const t = document.createElement("div"); t.className = "nu-toast";
+  t.textContent = { resources: "Resources are coming soon.", programs: "Programs are coming soon.", support: "Professional support requests are coming soon." }[b.dataset.nu];
+  document.body.appendChild(t); setTimeout(() => t.remove(), 2400);
+}));
+
+/* ---------- Explore Resources: categories + library ---------- */
+const RS_NAMES = { stress: "Stress Management", sleep: "Sleep & Shift Recovery", physical: "Physical Health", worklife: "Work-Life Balance", finance: "Financial Well-Being" };
+const rsDrop = document.getElementById("rsDrop");
+let rsLibData = null, rsCat = "all";
+document.getElementById("rsAll").addEventListener("click", () => {
+  const open = rsDrop.classList.toggle("open");
+  document.getElementById("rsAll").setAttribute("aria-expanded", open);
+});
+function rsMark(k) {
+  document.querySelectorAll(".rs-side, .rs-card").forEach((s) => s.classList.toggle("active", s.dataset.rs === k));
+}
+function rsSize(n) { n = Number(n) || 0; return n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB"; }
+function rsOpen(k) {
+  rsCat = k; rsMark(k); rsStopPoll();
+  const grid = document.querySelector(".rs-grid"), lib = $("rsLib");
+  if (k === "all") { lib.hidden = true; grid.hidden = false; return; }
+  grid.hidden = true; lib.hidden = false;
+  $("rsLibTitle").textContent = RS_NAMES[k];
+  $("rsSearch").value = "";
+  rsLibData = null; rsShown = null;
+  $("rsBooks").innerHTML = '<div class="rs-msg">Loading the library…</div>';
+  rsRefresh(true);
+  rsPoll = setInterval(() => { if (!document.hidden && $("rsReader").hidden && $("resources").classList.contains("active")) rsRefresh(false); }, 15000);
+}
+function rsStopPoll() { if (rsPoll) { clearInterval(rsPoll); rsPoll = null; } }
+let rsPoll = null, rsShown = null, rsBusy = false;
+// loads the folder fresh from Drive; "loud" shows errors, quiet refreshes only redraw when something changed
+function rsRefresh(loud) {
+  const k = rsCat; if (k === "all" || rsBusy) return;
+  rsBusy = true;
+  const btn = $("rsRefresh"); btn.classList.add("spin");
+  api("libList", { cat: k }).then((r) => {
+    if (rsCat !== k) return;
+    const lib = r.lib, sig = JSON.stringify(lib[k] || []) + (lib[k + "_error"] || "");
+    rsLibData = lib;
+    if (sig !== rsShown) { rsShown = sig; rsRenderBooks(); }
+  }).catch((e) => {
+    if (rsCat !== k || !loud) return;
+    const box = $("rsBooks");
+    box.innerHTML = '<div class="rs-msg">' + (e.message === "outdated" ? "The script needs the latest update." : "The library could not be loaded.") + '<br><button type="button">Try again</button></div>';
+    box.querySelector("button").addEventListener("click", () => rsRefresh(true));
+  }).finally(() => { rsBusy = false; btn.classList.remove("spin"); });
+}
+function rsRenderBooks() {
+  const box = $("rsBooks"), k = rsCat, lib = rsLibData;
+  if (!lib) return;
+  if (lib[k + "_error"]) { box.innerHTML = '<div class="rs-msg">This folder could not be opened.<br><small></small></div>'; box.querySelector("small").textContent = lib[k + "_error"]; return; }
+  const q = $("rsSearch").value.trim().toLowerCase();
+  const items = (lib[k] || []).filter((b) => !q || b.name.toLowerCase().includes(q));
+  if (!items.length) { box.innerHTML = '<div class="rs-msg">' + (q ? "No books match your search." : "No books here yet.") + "</div>"; return; }
+  box.innerHTML = "";
+  items.forEach((b) => {
+    const el = document.createElement("button");
+    el.type = "button"; el.className = "rs-book"; el.dataset.t = b.type;
+    el.innerHTML = '<span class="rs-cover"><svg viewBox="0 0 80 80" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M40 24C32 18 20 17 11 20v40c9-3 21-2 29 4 8-6 20-7 29-4V20c-9-3-21-2-29 4Z"/><path d="M40 24v40"/></g></svg><span class="rs-badge"></span></span><span class="rs-btitle"></span><span class="rs-bmeta"></span>';
+    el.querySelector(".rs-badge").textContent = b.type.toUpperCase();
+    el.querySelector(".rs-btitle").textContent = b.name;
+    el.querySelector(".rs-bmeta").textContent = rsSize(b.size);
+    el.addEventListener("click", () => rsRead(b));
+    box.appendChild(el);
+  });
+}
+document.querySelectorAll(".rs-side, .rs-card").forEach((b) => b.addEventListener("click", () => rsOpen(b.dataset.rs)));
+$("rsBack").addEventListener("click", () => rsOpen("all"));
+$("rsSearch").addEventListener("input", rsRenderBooks);
+$("rsRefresh").addEventListener("click", () => rsRefresh(true));
+// when the page is left and opened again it starts from the categories
+document.querySelector('[data-view="resources"]').addEventListener("click", () => rsOpen("all"));
+
+/* reader (PDF through Google Drive's viewer, EPUB with epub.js) */
+let rsBook = null, rsReaderKey = null;
+function rsLoadScript(src) {
+  return new Promise((res, rej) => {
+    if (document.querySelector('script[data-src="' + src + '"]')) return res();
+    const s = document.createElement("script"); s.src = src; s.dataset.src = src;
+    s.onload = res; s.onerror = () => rej(new Error("script")); document.head.appendChild(s);
+  });
+}
+function rsClose() {
+  $("rsReader").hidden = true; $("rsRBody").innerHTML = "";
+  $("rsRPrev").hidden = $("rsRNext").hidden = true;
+  if (rsBook) { try { rsBook.destroy(); } catch (e) {} rsBook = null; }
+  rsReaderKey = null; document.removeEventListener("keydown", rsKeys);
+}
+function rsKeys(e) {
+  if (e.key === "Escape") rsClose();
+  else if (rsBook && e.key === "ArrowRight") rsBook.rendition && rsBook.rendition.next();
+  else if (rsBook && e.key === "ArrowLeft") rsBook.rendition && rsBook.rendition.prev();
+}
+async function rsRead(b) {
+  rsClose();
+  const key = (rsReaderKey = b.id);
+  $("rsRTitle").textContent = b.name;
+  const body = $("rsRBody");
+  $("rsReader").hidden = false; document.addEventListener("keydown", rsKeys);
+  if (b.type === "pdf") {
+    const f = document.createElement("iframe");
+    f.src = "https://drive.google.com/file/d/" + b.id + "/preview"; f.setAttribute("allow", "fullscreen");
+    body.appendChild(f);
+    const sh = document.createElement("div"); sh.className = "rs-shield"; body.appendChild(sh);   // covers the viewer's pop-out / open-in-Drive button
+    return;
+  }
+  body.innerHTML = '<div class="rs-loading">Opening the book…</div>';
+  try {
+    const r = await api("libFile", { id: b.id });
+    await rsLoadScript("https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js");
+    await rsLoadScript("https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js");
+    if (rsReaderKey !== key) return;
+    const bin = atob(r.b64), buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    body.innerHTML = '<div class="rs-epub" id="rsEpub"></div>';
+    rsBook = ePub(buf.buffer);
+    const rend = rsBook.renderTo("rsEpub", { width: "100%", height: "100%", flow: "paginated", spread: "none" });
+    rsBook.rendition = rend;
+    await rend.display();
+    $("rsRPrev").hidden = $("rsRNext").hidden = false;
+  } catch (e) {
+    if (rsReaderKey !== key) return;
+    body.innerHTML = '<div class="rs-loading">' + (e.message === "too-big" ? "This book is too large to open here." : "This book could not be opened here.") + " Use Download above.</div>";
+  }
+}
+$("rsRClose").addEventListener("click", rsClose);
+$("rsRPrev").addEventListener("click", () => rsBook && rsBook.rendition.prev());
+$("rsRNext").addEventListener("click", () => rsBook && rsBook.rendition.next());
