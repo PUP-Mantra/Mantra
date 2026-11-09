@@ -485,6 +485,7 @@ function showView(name) {
   if (name === "admin" && !(currentUser && currentUser.role === "admin")) name = "home";
   const target = document.getElementById(name);
   if (!target) return;
+  if (name === "about" && typeof window.aboutEnter === "function") window.aboutEnter();
   if (name === "programs" && typeof pgEnter === "function") pgEnter();
   if (name === "counseling" && typeof apEnter === "function") apEnter();
   if (name === "support" && typeof apSupportEnter === "function") apSupportEnter();
@@ -2731,3 +2732,62 @@ armConfirm($("apResetAll"), "Reset all appointments", "Sure? Deletes all request
 });
 
 document.querySelectorAll("[data-soon]").forEach((el) => el.addEventListener("click", () => pgToast(el.dataset.soon)));
+
+/* ---------- About: slow scroll-driven transitions ---------- */
+(function () {
+  var page = $("about"), track = $("abTrack"), stage = $("abStage");
+  if (!page || !track) return;
+  var logo = document.querySelector(".nav-logo");
+  if (logo) [].forEach.call(page.querySelectorAll("[data-lotus]"), function (s) { var c = logo.cloneNode(true); c.removeAttribute("class"); s.appendChild(c); });
+  var units = [], dots = $("abDots"), cur = 0, raf = 0, mobile = null;
+  var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function collect() {
+    var m = window.innerWidth <= 820;
+    if (m === mobile) return; mobile = m;
+    units.forEach(function (u) { u.style.cssText = ""; });
+    units = m ? [].slice.call(page.querySelectorAll(".ab-top,.ab-bottom")) : [].slice.call(page.querySelectorAll(".ab-screen"));
+    dots.innerHTML = ""; units.forEach(function (u, i) {
+      var d = document.createElement("i"); d.addEventListener("click", function () { var max = track.offsetHeight - stage.offsetHeight; page.scrollTo({ top: max * i / (units.length - 1), behavior: "smooth" }); }); dots.appendChild(d); });
+  }
+  function target() {
+    var max = track.offsetHeight - stage.offsetHeight;
+    return max > 0 ? Math.max(0, Math.min(1, page.scrollTop / max)) * (units.length - 1) : 0;
+  }
+  function ease(t) { return t * t * (3 - 2 * t); }
+  function paint() {
+    var hold = 0.22;
+    units.forEach(function (s, i) {
+      var d = cur - i, a = Math.abs(d), t = Math.min(1, Math.max(0, (a - hold) / (1 - hold)));
+      var o = 1 - ease(Math.min(1, t * 1.7)), y = (d < 0 ? 1 : -1) * ease(t) * 7;
+      s.style.opacity = o.toFixed(3);
+      s.style.transform = "translateY(" + y.toFixed(2) + "rem) scale(" + (1 - ease(t) * 0.04).toFixed(3) + ")";
+      s.style.visibility = o < 0.01 ? "hidden" : "visible";
+      s.style.pointerEvents = a < 0.5 ? "auto" : "none";
+      s.classList.toggle("on", a < 0.55);
+    });
+    var n = Math.round(cur);
+    [].forEach.call(dots.children, function (d, i) { d.classList.toggle("on", i === n); });
+    $("abHint").style.opacity = cur < 0.15 ? 1 : 0;
+  }
+  function loop() {
+    var t = target();
+    cur = reduce ? t : cur + (t - cur) * 0.06;
+    if (Math.abs(t - cur) < 0.0005) cur = t;
+    paint();
+    raf = (cur !== t) ? requestAnimationFrame(loop) : 0;
+  }
+  function kick() { if (!raf) raf = requestAnimationFrame(loop); }
+  page.addEventListener("scroll", kick, { passive: true });
+  window.addEventListener("resize", function () { collect(); kick(); });
+  window.aboutEnter = function () { collect(); page.scrollTop = 0; cur = 0; paint(); kick(); };
+  (function () {
+    var cols = ["#f6b9a0", "#f2cf8d", "#c9c8a0", "#f9d5c3"];
+    for (var i = 0; i < 16; i++) {
+      var p = document.createElement("i"); p.className = "ab-fl";
+      var sz = 0.5 + Math.random() * 1.1;
+      p.style.cssText = "left:" + (Math.random() * 100).toFixed(1) + "%;width:" + sz.toFixed(2) + "rem;height:" + (i % 3 ? sz : sz * 1.6).toFixed(2) + "rem;background:" + cols[i % 4] + ";animation-duration:" + (14 + Math.random() * 14).toFixed(1) + "s;animation-delay:-" + (Math.random() * 20).toFixed(1) + "s;border-radius:" + (i % 3 ? "50%" : "60% 0 60% 0") + ";";
+      stage.insertBefore(p, stage.children[2]);
+    }
+  })();
+  collect(); paint();
+})();
