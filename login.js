@@ -485,7 +485,6 @@ function showView(name) {
   if (name === "admin" && !(currentUser && currentUser.role === "admin")) name = "home";
   const target = document.getElementById(name);
   if (!target) return;
-  if (name === "about" && typeof window.aboutEnter === "function") window.aboutEnter();
   if (name === "programs" && typeof pgEnter === "function") pgEnter();
   if (name === "counseling" && typeof apEnter === "function") apEnter();
   if (name === "support" && typeof apSupportEnter === "function") apSupportEnter();
@@ -493,6 +492,7 @@ function showView(name) {
 
   const wasHome = !document.querySelector(".page.active");
   pages.forEach((p) => p.classList.toggle("active", p === target));   // "home" = no page on top
+  if (name === "about" && typeof window.aboutEnter === "function") window.aboutEnter();
   const top = parentOf[name] || name;
   navLinks.forEach((a) => a.classList.toggle("active", a.dataset.view === top));
   if (target.classList.contains("page")) target.scrollTop = 0;
@@ -2741,13 +2741,31 @@ document.querySelectorAll("[data-soon]").forEach((el) => el.addEventListener("cl
   if (logo) [].forEach.call(page.querySelectorAll("[data-lotus]"), function (s) { var c = logo.cloneNode(true); c.removeAttribute("class"); s.appendChild(c); });
   var units = [], dots = $("abDots"), cur = 0, raf = 0, mobile = null;
   var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
-  function collect() {
+  function fitMobile() {
+    if (!mobile) return;
+    var st = $("abStage");
+    units.forEach(function (u) {
+      u.style.removeProperty("--u"); u.style.justifyContent = "flex-start";
+      var k = 1;
+      while (k > 0.5 && u.scrollHeight > u.clientHeight + 1) { k -= 0.04; u.style.setProperty("--u", "calc(min(1rem, 100vh / 54.05) * " + k.toFixed(2) + ")"); }
+      u.style.justifyContent = "";
+    });
+  }
+  function snaps() {
+    [].forEach.call(track.querySelectorAll(".ab-snap"), function (n) { n.remove(); });
+    if (!mobile) return;
+    var max = track.offsetHeight - stage.offsetHeight;
+    units.forEach(function (u, i) { var a = document.createElement("i"); a.className = "ab-snap"; a.style.top = Math.round(max * i / (units.length - 1)) + "px"; track.appendChild(a); });
+  }
+  function collect(force) {
     var m = window.innerWidth <= 820;
-    if (m === mobile) return; mobile = m;
+    if (m === mobile && !force) return; mobile = m;
     units.forEach(function (u) { u.style.cssText = ""; });
-    units = m ? [].slice.call(page.querySelectorAll(".ab-top,.ab-bottom")) : [].slice.call(page.querySelectorAll(".ab-screen"));
+    var sc = [].slice.call(page.querySelectorAll(".ab-screen"));
+    units = m ? [sc[0].querySelector(".ab-top"), sc[0].querySelector(".ab-bottom"), sc[1], sc[2], sc[3]] : sc;
     dots.innerHTML = ""; units.forEach(function (u, i) {
       var d = document.createElement("i"); d.addEventListener("click", function () { var max = track.offsetHeight - stage.offsetHeight; page.scrollTo({ top: max * i / (units.length - 1), behavior: "smooth" }); }); dots.appendChild(d); });
+    fitMobile(); snaps();
   }
   function target() {
     var max = track.offsetHeight - stage.offsetHeight;
@@ -2778,8 +2796,9 @@ document.querySelectorAll("[data-soon]").forEach((el) => el.addEventListener("cl
   }
   function kick() { if (!raf) raf = requestAnimationFrame(loop); }
   page.addEventListener("scroll", kick, { passive: true });
-  window.addEventListener("resize", function () { collect(); kick(); });
-  window.aboutEnter = function () { collect(); page.scrollTop = 0; cur = 0; paint(); kick(); };
+  window.addEventListener("resize", function () { collect(true); kick(); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { collect(true); paint(); });
+  window.aboutEnter = function () { collect(true); page.scrollTop = 0; cur = 0; paint(); kick(); };
   (function () {
     var cols = ["#f6b9a0", "#f2cf8d", "#c9c8a0", "#f9d5c3"];
     for (var i = 0; i < 16; i++) {
