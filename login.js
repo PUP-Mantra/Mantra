@@ -476,7 +476,7 @@ const pages = document.querySelectorAll(".page");
 const navLinks = document.querySelectorAll(".nav-link");
 const parentOf = { sense: "services", nurture: "services", resources: "services", programs: "services", support: "services", counseling: "services", checkin: "services", tracker: "services", occhealth: "services", network: "services" };   // which nav link stays highlighted
 
-function showView(name) {
+function showView(name, fromPop) {
   // employees fill in the Workday Check-In before they get into Mantra Sense
   if (name === "sense" && currentUser && currentUser.role === "employee") {
     if (!checkinDone) name = "checkin";
@@ -506,11 +506,19 @@ function showView(name) {
     st.classList.add("home-enter");
     setTimeout(() => st.classList.remove("home-enter"), 600);
   }
-  history.replaceState(null, "", "#" + name);
+  // every screen is a history step, so the phone's Back button (or the browser's) returns to the previous screen
+  if (fromPop || (history.state && history.state.view === name)) history.replaceState({ view: name }, "", "#" + name);
+  else history.pushState({ view: name }, "", "#" + name);
   closeDropdowns();
   if (name === "tracker") trEnter();
   if (name === "garden") gdEnter();
 }
+
+window.addEventListener("popstate", (e) => {
+  const dash = document.getElementById("dashboard");
+  if (!currentUser || !dash || !dash.classList.contains("show")) return;     // not logged in: nothing to go back to
+  showView((e.state && e.state.view) || "home", true);
+});
 
 document.querySelectorAll("[data-view]").forEach((a) => {
   a.addEventListener("click", (e) => {
@@ -2584,6 +2592,8 @@ const apGo = (k) => { apKind = k; showView("counseling"); };
 $("apCard").addEventListener("click", () => apGo("counseling"));
 $("apCard").addEventListener("keydown", (e) => { if (e.key === "Enter") apGo("counseling"); });
 $("apOtherCard").addEventListener("click", () => apGo("other"));
+$("ohToCounsel").addEventListener("click", () => apGo("counseling"));
+$("ohToOther").addEventListener("click", () => apGo("other"));
 $("apOtherCard").addEventListener("keydown", (e) => { if (e.key === "Enter") apGo("other"); });
 function apEnter() {
   apTab = apStaff() ? "open" : "current"; apSig = "";
@@ -2606,8 +2616,6 @@ function apTabs() {
     b.addEventListener("click", () => { apTab = k; apTabs(); apRender(); });
     nav.appendChild(b);
   });
-  const back = document.createElement("button"); back.type = "button"; back.className = "pg-tab"; back.setAttribute("data-view", "support");
-  back.innerHTML = "<span>Get Professional Support</span><b>&larr;</b>"; back.addEventListener("click", () => showView("support")); nav.appendChild(back);
 }
 function apRefresh(loud) {
   return api("aList").then((r) => {
@@ -2963,4 +2971,11 @@ armConfirm($("ohResetAll"), "Reset all hospitals", "Sure? Deletes all hospitals"
 });
 armConfirm($("nwResetAll"), "Reset provider network", "Sure? Deletes all categories & partners", async () => {
   try { await api("nReset"); nwCats = []; nwCur = null; nwOpenId = ""; nwRender(); pgToast("Provider network reset"); } catch (e) { pgToast("Couldn't reset"); }
+});
+
+/* phones: the sidebar title is a dropdown that opens the other options */
+document.querySelectorAll("#programs .pg-side, #support .pg-side, #occhealth .pg-side, #network .pg-side, #counseling .pg-side").forEach((side) => {
+  const h = side.querySelector("h3");
+  if (h) h.addEventListener("click", () => side.classList.toggle("open"));
+  side.addEventListener("click", (e) => { if (e.target.closest(".pg-tab")) side.classList.remove("open"); });
 });

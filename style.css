@@ -2987,3 +2987,55 @@ button.tr-row-item:hover { background: #fdebe0; }
 @media (max-width: 820px) { .nw-item.staff .nw-head { padding-right: 6.6rem; } .nw-rm { right: 2.6rem; } }
 .nw-item.staff .nw-head { padding-right: 1.2rem; } .nw-item.staff .nw-head .nm { margin-right: 6.2rem; }
 @media (max-width: 820px) { .nw-item.staff .nw-head { padding-right: 1rem; } .nw-item.staff .nw-head .nm { margin-right: 5.6rem; } }
+
+/* ===== Phones: Join a Program + Get Professional Support (and its sub-pages) ===== */
+@media (max-width: 820px) {
+  #programs, #support, #occhealth, #network, #counseling { overflow-x: hidden; }
+  #programs .pg-wrap, #support .pg-wrap, #occhealth .pg-wrap, #network .pg-wrap, #counseling .pg-wrap { width: 100%; max-width: 100%; }
+  /* tabs fit on one line, nothing scrolls sideways */
+  #programs .pg-side nav, #support .pg-side nav, #occhealth .pg-side nav, #network .pg-side nav { overflow: visible; gap: .25rem; }
+  #programs .pg-tab, #support .pg-tab, #occhealth .pg-tab, #network .pg-tab { flex: 1 1 auto; min-width: 0; padding: .4rem .35rem; font-size: .7rem; text-align: center; justify-content: center; letter-spacing: -.01em; }
+  #programs .pg-side, #support .pg-side, #occhealth .pg-side, #network .pg-side { padding: 1rem .8rem .9rem; }
+  #programs .pg-side h3, #support .pg-side h3, #occhealth .pg-side h3, #network .pg-side h3 { margin: 0 0 .6rem; font-size: 1.05rem; }
+  /* "mantra nurture" sits top-left like Explore Resources; the big title bubble goes away */
+  #programs .pg-banner, #support .pg-banner { padding: 0; margin: .7rem .2rem .2rem; background: none; border-radius: 0; }
+  #programs .pg-banner h2, #programs .pg-banner p, #support .pg-banner h2, #support .pg-banner p { display: none; }
+  #programs .pg-main, #support .pg-main { padding-left: .9rem; padding-right: .9rem; }
+}
+@media (max-width: 820px) { #programs .pg-side, #support .pg-side, #occhealth .pg-side, #network .pg-side { width: 100%; } }
+
+/* Phones: "mantra nurture" above the sidebar title, top left */
+@media (max-width: 820px) {
+  #programs .pg-wrap, #support .pg-wrap, #occhealth .pg-wrap, #network .pg-wrap, #counseling .pg-wrap { position: relative; padding-top: 2.6rem; }
+  #programs .pg-banner .rs-brand, #support .pg-banner .rs-brand, #occhealth .pg-banner .rs-brand, #network .pg-banner .rs-brand, #counseling .pg-banner .rs-brand { position: absolute; top: .8rem; left: .9rem; z-index: 2; font-size: 1.3rem; }
+  #programs .pg-side, #support .pg-side, #occhealth .pg-side, #network .pg-side, #counseling .pg-side { margin-top: 0; }
+  #programs .pg-banner, #support .pg-banner { margin: 0; }
+}
+
+/* ===== Phones: order = mantra nurture, title + description, then a dropdown for the sidebar options ===== */
+@media (max-width: 820px) {
+  #programs .pg-wrap, #support .pg-wrap, #occhealth .pg-wrap, #network .pg-wrap, #counseling .pg-wrap { display: flex; flex-direction: column; padding: .7rem 0 2rem; }
+  #programs .pg-main, #support .pg-main, #occhealth .pg-main, #network .pg-main, #counseling .pg-main { display: contents; }
+  #programs .pg-banner, #support .pg-banner, #occhealth .pg-banner, #network .pg-banner, #counseling .pg-banner { order: 1; margin: 0; padding: 0 1.1rem; background: none; border-radius: 0; }
+  #programs .pg-side, #support .pg-side, #occhealth .pg-side, #network .pg-side, #counseling .pg-side { order: 2; margin: .9rem 1.1rem .4rem; width: auto; min-height: 0; border-radius: 1.2rem; padding: 0; align-self: stretch; }
+  #programs .pg-main > :not(.pg-banner), #support .pg-main > :not(.pg-banner), #occhealth .pg-main > :not(.pg-banner), #network .pg-main > :not(.pg-banner), #counseling .pg-main > :not(.pg-banner) { order: 3; margin-left: 1.1rem; margin-right: 1.1rem; }
+  /* brand back in the flow, top left */
+  #programs .pg-banner .rs-brand, #support .pg-banner .rs-brand, #occhealth .pg-banner .rs-brand, #network .pg-banner .rs-brand, #counseling .pg-banner .rs-brand { position: static; font-size: 1.3rem; }
+  /* title + description are back, just without the big bubble */
+  #programs .pg-banner h2, #support .pg-banner h2, #occhealth .pg-banner h2, #network .pg-banner h2, #counseling .pg-banner h2 { display: block; margin: .5rem 0 .25rem; font-size: 1.7rem; }
+  #programs .pg-banner p, #support .pg-banner p, #occhealth .pg-banner p, #network .pg-banner p, #counseling .pg-banner p { display: block; font-size: .88rem; line-height: 1.45; }
+  /* dropdown */
+  .pg-side h3.dd, #programs .pg-side h3, #support .pg-side h3, #occhealth .pg-side h3, #network .pg-side h3, #counseling .pg-side h3 { display: flex; align-items: center; justify-content: space-between; margin: 0; padding: .85rem 1rem; font-size: 1.05rem; cursor: pointer; user-select: none; }
+  #programs .pg-side h3::after, #support .pg-side h3::after, #occhealth .pg-side h3::after, #network .pg-side h3::after, #counseling .pg-side h3::after { content: ""; width: .55rem; height: .55rem; margin-left: .6rem; border-right: 2px solid #e8714f; border-bottom: 2px solid #e8714f; transform: rotate(45deg) translateY(-.1rem); transition: transform .25s; }
+  #programs .pg-side.open h3::after, #support .pg-side.open h3::after, #occhealth .pg-side.open h3::after, #network .pg-side.open h3::after, #counseling .pg-side.open h3::after { transform: rotate(-135deg) translate(-.1rem, -.1rem); }
+  #programs .pg-side nav, #support .pg-side nav, #occhealth .pg-side nav, #network .pg-side nav, #counseling .pg-side nav { display: none; flex-direction: column; gap: .15rem; padding: 0 .6rem .7rem; }
+  #programs .pg-side.open nav, #support .pg-side.open nav, #occhealth .pg-side.open nav, #network .pg-side.open nav, #counseling .pg-side.open nav { display: flex; animation: nwIn .25s ease; }
+  #programs .pg-tab, #support .pg-tab, #occhealth .pg-tab, #network .pg-tab, #counseling .pg-tab { flex: none; justify-content: space-between; text-align: left; padding: .65rem .8rem; font-size: .92rem; border-radius: .8rem; }
+  #programs .pg-tab b, #support .pg-tab b, #occhealth .pg-tab b, #network .pg-tab b, #counseling .pg-tab b { display: inline; }
+}
+
+/* Phones: round + button (bottom right) to add a program */
+@media (max-width: 820px) {
+  #programs #pgNew:not([hidden]) { position: fixed; right: 1.1rem; bottom: 5.4rem; z-index: 30; width: 3.4rem; height: 3.4rem; padding: 0; margin: 0; border-radius: 50%; font-size: 0; line-height: 0; display: flex; align-items: center; justify-content: center; box-shadow: 0 .5rem 1.2rem rgba(232,113,79,.4); }
+  #programs #pgNew:not([hidden])::before { content: "+"; font-size: 2rem; line-height: 1; font-weight: 400; }
+}
