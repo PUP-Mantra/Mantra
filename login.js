@@ -474,7 +474,7 @@ function fly(flyers, start, end, inPlace) {
    ===================================================== */
 const pages = document.querySelectorAll(".page");
 const navLinks = document.querySelectorAll(".nav-link");
-const parentOf = { sense: "services", nurture: "services", resources: "services", programs: "services", support: "services", counseling: "services", checkin: "services", tracker: "services" };   // which nav link stays highlighted
+const parentOf = { sense: "services", nurture: "services", resources: "services", programs: "services", support: "services", counseling: "services", checkin: "services", tracker: "services", occhealth: "services", network: "services" };   // which nav link stays highlighted
 
 function showView(name) {
   // employees fill in the Workday Check-In before they get into Mantra Sense
@@ -485,6 +485,8 @@ function showView(name) {
   if (name === "admin" && !(currentUser && currentUser.role === "admin")) name = "home";
   const target = document.getElementById(name);
   if (!target) return;
+  if (name === "occhealth" && typeof ohEnter === "function") ohEnter();
+  if (name === "network" && typeof nwEnter === "function") nwEnter();
   if (name === "programs" && typeof pgEnter === "function") pgEnter();
   if (name === "counseling" && typeof apEnter === "function") apEnter();
   if (name === "support" && typeof apSupportEnter === "function") apSupportEnter();
@@ -671,7 +673,7 @@ async function api(action, payload = {}) {
   if (action !== "icon" && data.v !== BACKEND_VERSION) throw new Error("outdated");
   return data;
 }
-const BACKEND_VERSION = 22;
+const BACKEND_VERSION = 25;
 
 const adminLink = document.getElementById("adminLink");
 const teamBtn   = document.getElementById("teamBtn");
@@ -2738,7 +2740,7 @@ document.querySelectorAll("[data-soon]").forEach((el) => el.addEventListener("cl
   var page = $("about"), track = $("abTrack"), stage = $("abStage");
   if (!page || !track) return;
   var logo = document.querySelector(".nav-logo");
-  if (logo) [].forEach.call(page.querySelectorAll("[data-lotus]"), function (s) { var c = logo.cloneNode(true); c.removeAttribute("class"); s.appendChild(c); });
+  if (logo) [].forEach.call(page.querySelectorAll("[data-lotus]"), function (s) { var c = logo.cloneNode(true); c.removeAttribute("class"); var ids = []; c.outerHTML.replace(/\sid="([^"]+)"/g, function (m, id) { ids.push(id); }); var html = c.outerHTML; ids.forEach(function (id) { html = html.split('id="' + id + '"').join('id="' + id + '-ab"').split("url(#" + id + ")").join("url(#" + id + "-ab)").split('href="#' + id + '"').join('href="#' + id + '-ab"'); }); s.insertAdjacentHTML("beforeend", html); });
   var units = [], dots = $("abDots"), cur = 0, raf = 0, mobile = null;
   var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
   function fitMobile() {
@@ -2810,3 +2812,155 @@ document.querySelectorAll("[data-soon]").forEach((el) => el.addEventListener("cl
   })();
   collect(); paint();
 })();
+
+
+/* ---------- Occupational Health (partner hospitals) + Our Provider Network ---------- */
+const nwStaff = () => !!currentUser && (currentUser.role === "hr" || currentUser.role === "admin");
+const nwEsc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const NW_PIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></svg>';
+const NW_PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/><rect x="3" y="3" width="18" height="18" rx="5"/></svg>';
+const NW_FOLDER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>';
+const NW_CHEV = '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+let ohList = [], nwCats = [], nwCur = null, ohOpenId = "", nwOpenId = "";
+
+function nwError(box, e) {
+  const msg = e && e.message === "outdated" ? "The script is out of date. Redeploy it as a New version." : e && e.message === "not-connected" ? "Not connected to the sheet yet." : "Couldn't load right now. Please try again.";
+  box.innerHTML = '<div class="nw-note">' + nwEsc(msg) + "</div>";
+}
+
+/* shared add / edit form: fields = [{id,label,type,max,value,ph}] */
+function nwOpenForm(title, fields, save) {
+  $("nwFormTitle").textContent = title;
+  $("nwFields").innerHTML = fields.map((f) => '<label for="nwf_' + f.id + '">' + nwEsc(f.label) + "</label>" + (f.type === "area"
+    ? '<textarea id="nwf_' + f.id + '" rows="3" maxlength="' + f.max + '" placeholder="' + nwEsc(f.ph || "") + '">' + nwEsc(f.value || "") + "</textarea>"
+    : '<input id="nwf_' + f.id + '" maxlength="' + f.max + '" value="' + nwEsc(f.value || "") + '" placeholder="' + nwEsc(f.ph || "") + '"' + (f.required ? " required" : "") + ">")).join("");
+  $("nwErr").hidden = true; $("nwSave").disabled = false;
+  $("nwModal").hidden = false;
+  const first = $("nwFields").querySelector("input,textarea"); if (first) setTimeout(() => first.focus(), 50);
+  $("nwForm").onsubmit = async (ev) => {
+    ev.preventDefault();
+    const vals = {}; fields.forEach((f) => { vals[f.id] = $("nwf_" + f.id).value.trim(); });
+    $("nwSave").disabled = true;
+    try { await save(vals); $("nwModal").hidden = true; }
+    catch (e) { $("nwErr").textContent = e && e.message === "outdated" ? "The script is out of date. Redeploy it as a New version." : (e && e.message) || "Couldn't save."; $("nwErr").hidden = false; $("nwSave").disabled = false; }
+  };
+}
+$("nwX").addEventListener("click", () => { $("nwModal").hidden = true; });
+$("nwCancel").addEventListener("click", () => { $("nwModal").hidden = true; });
+$("nwModal").addEventListener("click", (e) => { if (e.target === $("nwModal")) $("nwModal").hidden = true; });
+const nwPartnerFields = (v) => [
+  { id: "name", label: "Name", max: 100, required: true, value: v && v.name, ph: "e.g. St. Luke's Medical Center" },
+  { id: "description", label: "Description", type: "area", max: 500, value: v && v.description, ph: "What they offer, coverage notes…" },
+  { id: "location", label: "Location", max: 250, value: v && v.location, ph: "Address or area" },
+];
+
+/* one accordion row; used by hospitals and by partners */
+function nwItem(item, openId, onToggle, staffActs) {
+  const d = document.createElement("div"); d.className = "nw-item" + (openId === item.id ? " open" : "");
+  const head = document.createElement("button"); head.type = "button"; head.className = "nw-head";
+  head.innerHTML = '<span class="dot">' + NW_PLUS + '</span><span class="nm">' + nwEsc(item.name) + "</span>" + NW_CHEV;
+  head.addEventListener("click", () => onToggle(openId === item.id ? "" : item.id));
+  const more = document.createElement("div"); more.className = "nw-more";
+  more.innerHTML = "<h4>Description</h4><p>" + (item.description ? nwEsc(item.description) : "—") + "</p><h4>Location</h4><p>" + (item.location ? nwEsc(item.location) : "—") + "</p>";
+  if (staffActs && nwStaff()) {
+    const acts = document.createElement("div"); acts.className = "nw-acts";
+    const ed = document.createElement("button"); ed.type = "button"; ed.textContent = "Edit"; ed.addEventListener("click", staffActs.edit);
+    acts.append(ed); more.appendChild(acts);
+    const rm = document.createElement("button"); rm.type = "button"; rm.className = "nw-rm"; rm.textContent = "Remove"; rm.title = "Remove";
+    armConfirm(rm, "Remove", "Sure?", staffActs.del);
+    d.classList.add("staff"); d.append(head, rm, more); return d;
+  }
+  d.append(head, more); return d;
+}
+
+/* ----- Occupational Health ----- */
+async function ohEnter() { $("ohResetAll").hidden = pgRole() !== "admin"; ohOpenId = ""; $("ohBody").innerHTML = '<div class="nw-note">Loading…</div>'; await ohRefresh(); }
+async function ohRefresh() {
+  try { const r = await api("hList"); ohList = r.hospitals || []; ohRender(); } catch (e) { nwError($("ohBody"), e); }
+}
+function ohRender() {
+  const box = $("ohBody"); box.innerHTML = "";
+  const bar = document.createElement("div"); bar.className = "nw-bar";
+  bar.innerHTML = "<h3>Partner hospitals</h3><span class=\"sp\"></span>";
+  if (nwStaff()) {
+    const add = document.createElement("button"); add.type = "button"; add.className = "nw-add"; add.textContent = "+ Add hospital";
+    add.addEventListener("click", () => nwOpenForm("Add partner hospital", nwPartnerFields(), async (v) => { await api("hSave", v); pgToast("Hospital added"); await ohRefresh(); }));
+    bar.appendChild(add);
+  }
+  box.appendChild(bar);
+  if (!ohList.length) { const n = document.createElement("div"); n.className = "nw-note"; n.textContent = nwStaff() ? "No partner hospitals yet. Add the hospitals covered by your HMO." : "No partner hospitals have been added yet."; box.appendChild(n); return; }
+  const list = document.createElement("div"); list.className = "nw-list";
+  ohList.forEach((h) => list.appendChild(nwItem(h, ohOpenId, (id) => { ohOpenId = id; ohRender(); }, {
+    edit: () => nwOpenForm("Edit hospital", nwPartnerFields(h), async (v) => { await api("hSave", Object.assign({ id: h.id }, v)); pgToast("Saved"); await ohRefresh(); }),
+    del: async () => { try { await api("hDelete", { id: h.id }); ohOpenId = ""; pgToast("Hospital removed"); await ohRefresh(); } catch (e) { pgToast("Couldn't remove it"); } },
+  })));
+  box.appendChild(list);
+}
+
+/* ----- Our Provider Network ----- */
+async function nwEnter() { $("nwResetAll").hidden = pgRole() !== "admin"; nwCur = null; nwOpenId = ""; $("nwBody").innerHTML = '<div class="nw-note">Loading…</div>'; await nwRefresh(); }
+async function nwRefresh() {
+  try { const r = await api("nList"); nwCats = r.cats || []; if (nwCur && !nwCats.some((c) => c.id === nwCur)) nwCur = null; nwRender(); } catch (e) { nwError($("nwBody"), e); }
+}
+function nwRender() {
+  const box = $("nwBody"); box.innerHTML = "";
+  const cat = nwCats.filter((c) => c.id === nwCur)[0];
+  $("nwLead").textContent = cat ? "Select a partner to see its description and location." : "Browse our partners by category. Open a category, then select a partner to see its details and location.";
+  const bar = document.createElement("div"); bar.className = "nw-bar";
+  if (!cat) {
+    bar.innerHTML = "<h3>Categories</h3><span class=\"sp\"></span>";
+    if (nwStaff()) {
+      const add = document.createElement("button"); add.type = "button"; add.className = "nw-add"; add.textContent = "+ Add category";
+      add.addEventListener("click", () => nwOpenForm("Add category", [{ id: "name", label: "Category name", max: 80, required: true, ph: "e.g. Dental, Laboratory, Clinics" }], async (v) => { await api("nCat", v); pgToast("Category added"); await nwRefresh(); }));
+      bar.appendChild(add);
+    }
+    box.appendChild(bar);
+    if (!nwCats.length) { const n = document.createElement("div"); n.className = "nw-note"; n.textContent = nwStaff() ? "No categories yet. Add a category, then add your partners inside it." : "No provider categories have been added yet."; box.appendChild(n); return; }
+    const grid = document.createElement("div"); grid.className = "nw-cats";
+    nwCats.forEach((c) => {
+      const card = document.createElement("div"); card.className = "nw-cat"; card.tabIndex = 0; card.setAttribute("role", "button");
+      card.innerHTML = '<div class="dot">' + NW_FOLDER + "</div><h4>" + nwEsc(c.name) + '</h4><span class="cnt">' + c.providers.length + (c.providers.length === 1 ? " partner" : " partners") + "</span>";
+      const open = () => { nwCur = c.id; nwOpenId = ""; nwRender(); };
+      card.addEventListener("click", open); card.addEventListener("keydown", (e) => { if (e.key === "Enter") open(); });
+      if (nwStaff()) {
+        const acts = document.createElement("div"); acts.className = "nw-acts";
+        const ed = document.createElement("button"); ed.type = "button"; ed.textContent = "Rename";
+        ed.addEventListener("click", (e) => { e.stopPropagation(); nwOpenForm("Rename category", [{ id: "name", label: "Category name", max: 80, required: true, value: c.name }], async (v) => { await api("nCat", { id: c.id, name: v.name }); pgToast("Saved"); await nwRefresh(); }); });
+        const del = document.createElement("button"); del.type = "button"; del.textContent = "Delete";
+        del.addEventListener("click", (e) => e.stopPropagation());
+        armConfirm(del, "Delete", c.providers.length ? "Delete with partners?" : "Sure?", async () => { try { await api("nCatDelete", { id: c.id }); pgToast("Category removed"); await nwRefresh(); } catch (er) { pgToast("Couldn't remove it"); } });
+        acts.append(ed, del); card.appendChild(acts);
+      }
+      grid.appendChild(card);
+    });
+    box.appendChild(grid); return;
+  }
+  const back = document.createElement("button"); back.type = "button"; back.className = "nw-back"; back.textContent = "All categories";
+  back.addEventListener("click", () => { nwCur = null; nwOpenId = ""; nwRender(); });
+  const t = document.createElement("h3"); t.textContent = cat.name;
+  bar.append(back, t, Object.assign(document.createElement("span"), { className: "sp" }));
+  if (nwStaff()) {
+    const add = document.createElement("button"); add.type = "button"; add.className = "nw-add"; add.textContent = "+ Add partner";
+    add.addEventListener("click", () => nwOpenForm("Add partner to " + cat.name, nwPartnerFields(), async (v) => { await api("nProv", Object.assign({ cat: cat.id }, v)); pgToast("Partner added"); await nwRefresh(); }));
+    bar.appendChild(add);
+  }
+  box.appendChild(bar);
+  if (!cat.providers.length) { const n = document.createElement("div"); n.className = "nw-note"; n.textContent = nwStaff() ? "No partners in this category yet. Use “+ Add partner”." : "No partners have been added to this category yet."; box.appendChild(n); return; }
+  const list = document.createElement("div"); list.className = "nw-list";
+  cat.providers.forEach((p) => list.appendChild(nwItem(p, nwOpenId, (id) => { nwOpenId = id; nwRender(); }, {
+    edit: () => nwOpenForm("Edit partner", nwPartnerFields(p), async (v) => { await api("nProv", Object.assign({ id: p.id }, v)); pgToast("Saved"); await nwRefresh(); }),
+    del: async () => { try { await api("nProvDelete", { id: p.id }); nwOpenId = ""; pgToast("Partner removed"); await nwRefresh(); } catch (e) { pgToast("Couldn't remove it"); } },
+  })));
+  box.appendChild(list);
+}
+
+/* the Occupational Health card on the support page */
+$("ohCard").addEventListener("click", () => showView("occhealth"));
+$("ohCard").addEventListener("keydown", (e) => { if (e.key === "Enter") showView("occhealth"); });
+
+armConfirm($("ohResetAll"), "Reset all hospitals", "Sure? Deletes all hospitals", async () => {
+  try { await api("hReset"); ohList = []; ohOpenId = ""; ohRender(); pgToast("Hospitals reset"); } catch (e) { pgToast("Couldn't reset"); }
+});
+armConfirm($("nwResetAll"), "Reset provider network", "Sure? Deletes all categories & partners", async () => {
+  try { await api("nReset"); nwCats = []; nwCur = null; nwOpenId = ""; nwRender(); pgToast("Provider network reset"); } catch (e) { pgToast("Couldn't reset"); }
+});
