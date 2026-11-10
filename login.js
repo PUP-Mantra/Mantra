@@ -474,7 +474,7 @@ function fly(flyers, start, end, inPlace) {
    ===================================================== */
 const pages = document.querySelectorAll(".page");
 const navLinks = document.querySelectorAll(".nav-link");
-const parentOf = { sense: "services", nurture: "services", resources: "services", programs: "services", support: "services", counseling: "services", checkin: "services", tracker: "services", occhealth: "services", network: "services" };   // which nav link stays highlighted
+const parentOf = { sense: "services", nurture: "services", resources: "services", programs: "services", support: "services", counseling: "services", checkin: "services", tracker: "services", occhealth: "services", network: "services", faqs: "services" };   // which nav link stays highlighted
 
 function showView(name, fromPop) {
   // employees fill in the Workday Check-In before they get into Mantra Sense
@@ -3094,7 +3094,7 @@ armConfirm($("nwResetAll"), "Reset provider network", "Sure? Deletes all categor
 });
 
 /* phones: the sidebar title is a dropdown that opens the other options */
-document.querySelectorAll("#programs .pg-side, #support .pg-side, #occhealth .pg-side, #network .pg-side, #counseling .pg-side").forEach((side) => {
+document.querySelectorAll("#programs .pg-side, #support .pg-side, #occhealth .pg-side, #network .pg-side, #faqs .pg-side, #counseling .pg-side").forEach((side) => {
   const h = side.querySelector("h3");
   if (h) h.addEventListener("click", () => side.classList.toggle("open"));
   side.addEventListener("click", (e) => { if (e.target.closest(".pg-tab")) side.classList.remove("open"); });

@@ -2938,7 +2938,7 @@ button.tr-row-item:hover { background: #fdebe0; }
 .tr-top { justify-content: flex-start; }
 
 /* ===== Occupational Health + Our Provider Network ===== */
-#occhealth, #network { background: #fdeee4; overflow-y: auto; padding: 0; }
+#occhealth, #network, #faqs { background: #fdeee4; overflow-y: auto; padding: 0; }
 .nw-body { padding: 1.4rem 0 3rem; font-family: "Poppins", sans-serif; color: #4a1f12; }
 .nw-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .8rem; margin-bottom: 1.1rem; }
 .nw-bar h3 { margin: 0; font: 700 1.3rem "Poppins", sans-serif; color: #6b2a1a; }
@@ -2990,48 +2990,48 @@ button.tr-row-item:hover { background: #fdebe0; }
 
 /* ===== Phones: Join a Program + Get Professional Support (and its sub-pages) ===== */
 @media (max-width: 820px) {
-  #programs, #support, #occhealth, #network, #counseling { overflow-x: hidden; }
-  #programs .pg-wrap, #support .pg-wrap, #occhealth .pg-wrap, #network .pg-wrap, #counseling .pg-wrap { width: 100%; max-width: 100%; }
+  #programs, #support, #occhealth, #network, #faqs, #counseling { overflow-x: hidden; }
+  #programs .pg-wrap, #support .pg-wrap, #occhealth .pg-wrap, #network .pg-wrap, #faqs .pg-wrap, #counseling .pg-wrap { width: 100%; max-width: 100%; }
   /* tabs fit on one line, nothing scrolls sideways */
-  #programs .pg-side nav, #support .pg-side nav, #occhealth .pg-side nav, #network .pg-side nav { overflow: visible; gap: .25rem; }
-  #programs .pg-tab, #support .pg-tab, #occhealth .pg-tab, #network .pg-tab { flex: 1 1 auto; min-width: 0; padding: .4rem .35rem; font-size: .7rem; text-align: center; justify-content: center; letter-spacing: -.01em; }
-  #programs .pg-side, #support .pg-side, #occhealth .pg-side, #network .pg-side { padding: 1rem .8rem .9rem; }
-  #programs .pg-side h3, #support .pg-side h3, #occhealth .pg-side h3, #network .pg-side h3 { margin: 0 0 .6rem; font-size: 1.05rem; }
+  #programs .pg-side nav, #support .pg-side nav, #occhealth .pg-side nav, #network .pg-side nav, #faqs .pg-side nav { overflow: visible; gap: .25rem; }
+  #programs .pg-tab, #support .pg-tab, #occhealth .pg-tab, #network .pg-tab, #faqs .pg-tab { flex: 1 1 auto; min-width: 0; padding: .4rem .35rem; font-size: .7rem; text-align: center; justify-content: center; letter-spacing: -.01em; }
+  #programs .pg-side, #support .pg-side, #occhealth .pg-side, #network .pg-side, #faqs .pg-side { padding: 1rem .8rem .9rem; }
+  #programs .pg-side h3, #support .pg-side h3, #occhealth .pg-side h3, #network .pg-side h3, #faqs .pg-side h3 { margin: 0 0 .6rem; font-size: 1.05rem; }
   /* "mantra nurture" sits top-left like Explore Resources; the big title bubble goes away */
   #programs .pg-banner, #support .pg-banner { padding: 0; margin: .7rem .2rem .2rem; background: none; border-radius: 0; }
   #programs .pg-banner h2, #programs .pg-banner p, #support .pg-banner h2, #support .pg-banner p { display: none; }
   #programs .pg-main, #support .pg-main { padding-left: .9rem; padding-right: .9rem; }
 }
-@media (max-width: 820px) { #programs .pg-side, #support .pg-side, #occhealth .pg-side, #network .pg-side { width: 100%; } }
+@media (max-width: 820px) { #programs .pg-side, #support .pg-side, #occhealth .pg-side, #network .pg-side, #faqs .pg-side { width: 100%; } }
 
 /* Phones: "mantra nurture" above the sidebar title, top left */
 @media (max-width: 820px) {
-  #programs .pg-wrap, #support .pg-wrap, #occhealth .pg-wrap, #network .pg-wrap, #counseling .pg-wrap { position: relative; padding-top: 2.6rem; }
-  #programs .pg-banner .rs-brand, #support .pg-banner .rs-brand, #occhealth .pg-banner .rs-brand, #network .pg-banner .rs-brand, #counseling .pg-banner .rs-brand { position: absolute; top: .8rem; left: .9rem; z-index: 2; font-size: 1.3rem; }
-  #programs .pg-side, #support .pg-side, #occhealth .pg-side, #network .pg-side, #counseling .pg-side { margin-top: 0; }
+  #programs .pg-wrap, #support .pg-wrap, #occhealth .pg-wrap, #network .pg-wrap, #faqs .pg-wrap, #counseling .pg-wrap { position: relative; padding-top: 2.6rem; }
+  #programs .pg-banner .rs-brand, #support .pg-banner .rs-brand, #occhealth .pg-banner .rs-brand, #network .pg-banner .rs-brand, #faqs .pg-banner .rs-brand, #counseling .pg-banner .rs-brand { position: absolute; top: .8rem; left: .9rem; z-index: 2; font-size: 1.3rem; }
+  #programs .pg-side, #support .pg-side, #occhealth .pg-side, #network .pg-side, #faqs .pg-side, #counseling .pg-side { margin-top: 0; }
   #programs .pg-banner, #support .pg-banner { margin: 0; }
 }
 
 /* ===== Phones: order = mantra nurture, title + description, then a dropdown for the sidebar options ===== */
 @media (max-width: 820px) {
-  #programs .pg-wrap, #support .pg-wrap, #occhealth .pg-wrap, #network .pg-wrap, #counseling .pg-wrap { display: flex; flex-direction: column; padding: .7rem 0 2rem; }
-  #programs .pg-main, #support .pg-main, #occhealth .pg-main, #network .pg-main, #counseling .pg-main { display: contents; }
-  #programs .pg-banner, #support .pg-banner, #occhealth .pg-banner, #network .pg-banner, #counseling .pg-banner { order: 1; margin: 0; padding: 0 1.1rem; background: none; border-radius: 0; }
-  #programs .pg-side, #support .pg-side, #occhealth .pg-side, #network .pg-side, #counseling .pg-side { order: 2; margin: .9rem 1.1rem .4rem; width: auto; min-height: 0; border-radius: 1.2rem; padding: 0; align-self: stretch; }
-  #programs .pg-main > :not(.pg-banner), #support .pg-main > :not(.pg-banner), #occhealth .pg-main > :not(.pg-banner), #network .pg-main > :not(.pg-banner), #counseling .pg-main > :not(.pg-banner) { order: 3; margin-left: 1.1rem; margin-right: 1.1rem; }
+  #programs .pg-wrap, #support .pg-wrap, #occhealth .pg-wrap, #network .pg-wrap, #faqs .pg-wrap, #counseling .pg-wrap { display: flex; flex-direction: column; padding: .7rem 0 2rem; }
+  #programs .pg-main, #support .pg-main, #occhealth .pg-main, #network .pg-main, #faqs .pg-main, #counseling .pg-main { display: contents; }
+  #programs .pg-banner, #support .pg-banner, #occhealth .pg-banner, #network .pg-banner, #faqs .pg-banner, #counseling .pg-banner { order: 1; margin: 0; padding: 0 1.1rem; background: none; border-radius: 0; }
+  #programs .pg-side, #support .pg-side, #occhealth .pg-side, #network .pg-side, #faqs .pg-side, #counseling .pg-side { order: 2; margin: .9rem 1.1rem .4rem; width: auto; min-height: 0; border-radius: 1.2rem; padding: 0; align-self: stretch; }
+  #programs .pg-main > :not(.pg-banner), #support .pg-main > :not(.pg-banner), #occhealth .pg-main > :not(.pg-banner), #network .pg-main > :not(.pg-banner), #faqs .pg-main > :not(.pg-banner), #counseling .pg-main > :not(.pg-banner) { order: 3; margin-left: 1.1rem; margin-right: 1.1rem; }
   /* brand back in the flow, top left */
-  #programs .pg-banner .rs-brand, #support .pg-banner .rs-brand, #occhealth .pg-banner .rs-brand, #network .pg-banner .rs-brand, #counseling .pg-banner .rs-brand { position: static; font-size: 1.3rem; }
+  #programs .pg-banner .rs-brand, #support .pg-banner .rs-brand, #occhealth .pg-banner .rs-brand, #network .pg-banner .rs-brand, #faqs .pg-banner .rs-brand, #counseling .pg-banner .rs-brand { position: static; font-size: 1.3rem; }
   /* title + description are back, just without the big bubble */
-  #programs .pg-banner h2, #support .pg-banner h2, #occhealth .pg-banner h2, #network .pg-banner h2, #counseling .pg-banner h2 { display: block; margin: .5rem 0 .25rem; font-size: 1.7rem; }
-  #programs .pg-banner p, #support .pg-banner p, #occhealth .pg-banner p, #network .pg-banner p, #counseling .pg-banner p { display: block; font-size: .88rem; line-height: 1.45; }
+  #programs .pg-banner h2, #support .pg-banner h2, #occhealth .pg-banner h2, #network .pg-banner h2, #faqs .pg-banner h2, #counseling .pg-banner h2 { display: block; margin: .5rem 0 .25rem; font-size: 1.7rem; }
+  #programs .pg-banner p, #support .pg-banner p, #occhealth .pg-banner p, #network .pg-banner p, #faqs .pg-banner p, #counseling .pg-banner p { display: block; font-size: .88rem; line-height: 1.45; }
   /* dropdown */
-  .pg-side h3.dd, #programs .pg-side h3, #support .pg-side h3, #occhealth .pg-side h3, #network .pg-side h3, #counseling .pg-side h3 { display: flex; align-items: center; justify-content: space-between; margin: 0; padding: .85rem 1rem; font-size: 1.05rem; cursor: pointer; user-select: none; }
-  #programs .pg-side h3::after, #support .pg-side h3::after, #occhealth .pg-side h3::after, #network .pg-side h3::after, #counseling .pg-side h3::after { content: ""; width: .55rem; height: .55rem; margin-left: .6rem; border-right: 2px solid #e8714f; border-bottom: 2px solid #e8714f; transform: rotate(45deg) translateY(-.1rem); transition: transform .25s; }
-  #programs .pg-side.open h3::after, #support .pg-side.open h3::after, #occhealth .pg-side.open h3::after, #network .pg-side.open h3::after, #counseling .pg-side.open h3::after { transform: rotate(-135deg) translate(-.1rem, -.1rem); }
-  #programs .pg-side nav, #support .pg-side nav, #occhealth .pg-side nav, #network .pg-side nav, #counseling .pg-side nav { display: none; flex-direction: column; gap: .15rem; padding: 0 .6rem .7rem; }
-  #programs .pg-side.open nav, #support .pg-side.open nav, #occhealth .pg-side.open nav, #network .pg-side.open nav, #counseling .pg-side.open nav { display: flex; animation: nwIn .25s ease; }
-  #programs .pg-tab, #support .pg-tab, #occhealth .pg-tab, #network .pg-tab, #counseling .pg-tab { flex: none; justify-content: space-between; text-align: left; padding: .65rem .8rem; font-size: .92rem; border-radius: .8rem; }
-  #programs .pg-tab b, #support .pg-tab b, #occhealth .pg-tab b, #network .pg-tab b, #counseling .pg-tab b { display: inline; }
+  .pg-side h3.dd, #programs .pg-side h3, #support .pg-side h3, #occhealth .pg-side h3, #network .pg-side h3, #faqs .pg-side h3, #counseling .pg-side h3 { display: flex; align-items: center; justify-content: space-between; margin: 0; padding: .85rem 1rem; font-size: 1.05rem; cursor: pointer; user-select: none; }
+  #programs .pg-side h3::after, #support .pg-side h3::after, #occhealth .pg-side h3::after, #network .pg-side h3::after, #faqs .pg-side h3::after, #counseling .pg-side h3::after { content: ""; width: .55rem; height: .55rem; margin-left: .6rem; border-right: 2px solid #e8714f; border-bottom: 2px solid #e8714f; transform: rotate(45deg) translateY(-.1rem); transition: transform .25s; }
+  #programs .pg-side.open h3::after, #support .pg-side.open h3::after, #occhealth .pg-side.open h3::after, #network .pg-side.open h3::after, #faqs .pg-side.open h3::after, #counseling .pg-side.open h3::after { transform: rotate(-135deg) translate(-.1rem, -.1rem); }
+  #programs .pg-side nav, #support .pg-side nav, #occhealth .pg-side nav, #network .pg-side nav, #faqs .pg-side nav, #counseling .pg-side nav { display: none; flex-direction: column; gap: .15rem; padding: 0 .6rem .7rem; }
+  #programs .pg-side.open nav, #support .pg-side.open nav, #occhealth .pg-side.open nav, #network .pg-side.open nav, #faqs .pg-side.open nav, #counseling .pg-side.open nav { display: flex; animation: nwIn .25s ease; }
+  #programs .pg-tab, #support .pg-tab, #occhealth .pg-tab, #network .pg-tab, #faqs .pg-tab, #counseling .pg-tab { flex: none; justify-content: space-between; text-align: left; padding: .65rem .8rem; font-size: .92rem; border-radius: .8rem; }
+  #programs .pg-tab b, #support .pg-tab b, #occhealth .pg-tab b, #network .pg-tab b, #faqs .pg-tab b, #counseling .pg-tab b { display: inline; }
 }
 
 /* Phones: round + button (bottom right) to add a program */
@@ -3317,3 +3317,37 @@ button.tr-row-item:hover .tr-av { transform: scale(1.12) rotate(-6deg); }
 /* traced home-card icons fill the circle like the original art */
 .svc-icon svg { width: 92%; height: 92%; }
 .nurture .svc-icon svg { width: 92%; height: 92%; }
+
+/* ===== FAQs ===== */
+#faqs .pg-banner { position: relative; overflow: hidden; background: linear-gradient(115deg, #ffe3d0 0%, #ffdcc6 55%, #ffd3bb 100%); }
+#faqs .pg-banner > :not(.pgb-art) { position: relative; z-index: 1; }
+#faqs .pg-banner h2 { text-shadow: 0 .1rem 0 rgba(255, 255, 255, .5); }
+#faqs .pg-banner p { max-width: calc(100% - 15rem); }
+#faqs .pg-tab { transition: background .15s, transform .15s; }
+#faqs .pg-tab:hover { transform: translateX(.2rem); }
+.fq-list { display: grid; gap: .9rem; margin-top: 1.3rem; max-width: 56rem; }
+.fq-cat { position: relative; overflow: hidden; border: 2px solid #fcd2bc; border-radius: 1.4rem; background: linear-gradient(160deg, #fffaf5, #fff2e8); animation: nwIn .45s ease both; transition: box-shadow .2s, border-color .2s; }
+.fq-cat:nth-child(even) { border-color: #cfd0b3; background: linear-gradient(160deg, #f8f6ea, #f1efdc); }
+.fq-cat:nth-child(2) { animation-delay: .06s; } .fq-cat:nth-child(3) { animation-delay: .12s; } .fq-cat:nth-child(4) { animation-delay: .18s; }
+.fq-cat[open] { box-shadow: 0 .5rem 1.3rem rgba(217, 100, 60, .14); }
+.fq-cat summary { display: flex; align-items: center; gap: .8rem; padding: .95rem 1.2rem; cursor: pointer; list-style: none; font-family: "Poppins", sans-serif; color: #6b2a1a; }
+.fq-cat summary::-webkit-details-marker { display: none; }
+.fq-cat summary b { font-size: 1.08rem; font-weight: 700; }
+.fq-cat summary em { margin-left: auto; font-style: normal; font-size: .78rem; font-weight: 600; padding: .2rem .7rem; border-radius: 99px; background: #fde0d1; color: #b2563a; }
+.fq-cat:nth-child(even) summary em { background: #e6e9cc; color: #5f6b36; }
+.fq-ic { display: grid; place-items: center; flex: none; width: 2.1rem; height: 2.1rem; border-radius: 50%; background: linear-gradient(135deg, #ff9d7d, #e8714f); color: #fff; font-weight: 700; box-shadow: 0 .25rem .6rem rgba(232, 113, 79, .3); transition: transform .25s; }
+.fq-cat:nth-child(even) .fq-ic { background: linear-gradient(135deg, #b4bd84, #8a9462); box-shadow: 0 .25rem .6rem rgba(120, 130, 80, .3); }
+.fq-cat summary:hover .fq-ic { transform: rotate(-10deg) scale(1.08); }
+.fq-chev { flex: none; width: .6rem; height: .6rem; margin: 0 .2rem 0 .3rem; border: solid #b2563a; border-width: 0 2px 2px 0; transform: rotate(45deg); transition: transform .25s; }
+.fq-cat[open] .fq-chev { transform: rotate(-135deg); }
+.fq-body { padding: .2rem 1.2rem 1.1rem; animation: nwIn .3s ease; }
+.fq-item { display: flex; gap: .8rem; padding: .8rem 0; border-top: 1px dashed #f1c9b4; }
+.fq-cat:nth-child(even) .fq-item { border-top-color: #d7d9bd; }
+.fq-n { flex: none; display: grid; place-items: center; width: 1.6rem; height: 1.6rem; margin-top: .1rem; border-radius: 50%; background: #fde0d1; color: #b2563a; font: 700 .78rem "Poppins", sans-serif; }
+.fq-cat:nth-child(even) .fq-n { background: #e6e9cc; color: #5f6b36; }
+.fq-item h5 { margin: 0 0 .25rem; font: 600 .98rem "Poppins", sans-serif; color: #6b2a1a; }
+.fq-item p { margin: 0; font-size: .92rem; line-height: 1.55; color: #7a4a3a; }
+@media (max-width: 820px) { #faqs .pg-banner p { max-width: none; } .fq-list { margin: .9rem 1.1rem 0; order: 3; } .fq-cat summary { padding: .8rem .9rem; } .fq-cat summary b { font-size: .98rem; } .fq-body { padding: .1rem .9rem .9rem; } }
+@media (prefers-reduced-motion: reduce) { .fq-cat, .fq-body { animation: none !important; } }
+.fq-cat summary em { white-space: nowrap; } .fq-cat summary b { min-width: 0; }
+.fq-cat:nth-child(5) { animation-delay: .24s; }
