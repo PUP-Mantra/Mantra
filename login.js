@@ -480,11 +480,13 @@ function showView(name, fromPop) {
   // employees fill in the Workday Check-In before they get into Mantra Sense
   if (name === "sense" && currentUser && currentUser.role === "employee") {
     if (!checkinDone) name = "checkin";
+    else if (ckInfo && !ckInfo.open && !ckNoticeSeen && ckNeedsNotice(ckInfo)) name = "checkin";     // weekend: warning only
     else recheckCheckin();                       // data may have been reset since they answered
   }
   if (name === "admin" && !(currentUser && currentUser.role === "admin")) name = "home";
   const target = document.getElementById(name);
   if (!target) return;
+  if (name === "checkin" && typeof ckEnter === "function") ckEnter();
   if (name === "occhealth" && typeof ohEnter === "function") ohEnter();
   if (name === "network" && typeof nwEnter === "function") nwEnter();
   if (name === "programs" && typeof pgEnter === "function") pgEnter();
@@ -681,14 +683,18 @@ async function api(action, payload = {}) {
   if (action !== "icon" && data.v !== BACKEND_VERSION) throw new Error("outdated");
   return data;
 }
-const BACKEND_VERSION = 25;
+const BACKEND_VERSION = 26;
 
 const adminLink = document.getElementById("adminLink");
 const teamBtn   = document.getElementById("teamBtn");
 let checkinDone = false;           // the check-in is asked once per login
-// true  = TESTING: ask at every login (what you have now)
-// false = ask only if today's check-in isn't in the sheet yet (Mon/Wed/Fri slot), e.g. after an Admin reset
-const ASK_EVERY_LOGIN = true;
+// The check-in is once a day, Monday to Friday. Whether today's is done (and any skipped days) comes from the backend.
+// While testing, the backend counts every login as a new day (see CK_TEST in mantra-backend.gs).
+let ckInfo = null, ckReady = Promise.resolve(null), ckNoticeSeen = false;
+function ckLoad(advance) {
+  ckReady = api("ckOpen", { advance: !!advance }).then((d) => { ckInfo = d; checkinDone = !!d.done || !d.open; return d; }).catch(() => null);
+  return ckReady;
+}
 
 function setupRole() {
   adminLink.hidden = currentUser.role !== "admin";
@@ -697,9 +703,10 @@ function setupRole() {
   $("gdStyle").hidden = currentUser.role !== "admin";
   $("gdFabStyle").hidden = currentUser.role !== "admin";
   document.getElementById("tdClear").hidden = currentUser.role !== "admin";      // only Admin can reset messages
+  if (currentUser.role !== "employee") ckLoad(true);                  // a login = a new day while testing (the garden uses it too)
   if (currentUser.role === "employee") {
     api("sync").catch(() => {});                                        // puts their name on their row in the check-in sheet
-    if (!ASK_EVERY_LOGIN) checkinStatus().then((done) => { if (done === true) checkinDone = true; });
+    ckLoad(true);                                                      // a login = a new day while testing
     setInterval(recheckCheckin, 60000);                                 // notice an Admin reset while they are logged in
   }
   pollNotifications();                                                  // messages for employees, alerts for HR / Admin
@@ -709,14 +716,6 @@ function setupRole() {
 }
 
 /* ---------- Workday Check-In ---------- */
-// Monday/Tuesday -> Monday, Wednesday/Thursday -> Wednesday, Friday/weekend -> Friday
-function slotForToday() {
-  const d = new Date().getDay();               // 0 = Sunday
-  if (d === 1 || d === 2) return "mon";
-  if (d === 3 || d === 4) return "wed";
-  return "fri";
-}
-
 const answers = {};
 const ckNote = document.getElementById("ckNote");
 const ckSubmit = document.getElementById("ckSubmit");
@@ -740,7 +739,7 @@ document.querySelectorAll("#checkin [data-q]").forEach((group) => {
 
 // is today's check-in in the sheet? true / false, or null if the backend can't be reached
 async function checkinStatus() {
-  try { return (await api("status", { slot: slotForToday() })).done; } catch (e) { return null; }
+  try { return (await api("status")).done; } catch (e) { return null; }
 }
 
 function resetSurvey() {
@@ -753,11 +752,55 @@ async function recheckCheckin() {
   if (!currentUser || currentUser.role !== "employee" || !checkinDone) return;
   if ((await checkinStatus()) === false) {
     checkinDone = false;
+    ckNoticeSeen = false;
+    await ckLoad(false);
+    checkinDone = false;
     resetSurvey();
     setCkNote("Your check-in data was reset. Please answer the questions again.");
     if (document.getElementById("sense").classList.contains("active")) showView("checkin");
   }
 }
+
+// the skipped-days notice comes first, then the questions
+const ckNoticeEl = document.getElementById("ckNotice");
+function ckNeedsNotice(d) { return !!(d && !d.done && (d.skips > 0 || (d.penalisedNow || []).length)); }
+function ckRenderNotice(d) {
+  const names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  $("ckWeek").innerHTML = d.week.map((s, i) => {
+    const off = s === "off", now = off && !d.open && i === d.wd;
+    return '<span class="' + (now ? "today off" : s) + '"><i>' + (s === "done" ? "\u2713" : s === "skip" ? "\u2715" : s === "today" || now ? "\u2022" : "") + "</i><small>" + names[i] + "</small></span>";
+  }).join("");
+  const n = d.skips;
+  const earlier = (d.penalisedNow || []).filter((x) => !x.current)[0];
+  const weekend = !d.open;
+  $("ckNoticeTitle").textContent = weekend ? "No check-in on weekends"
+    : n > 0 ? (n === 1 ? "You skipped 1 check-in this week" : "You skipped " + n + " check-ins this week") : "You missed some check-ins last week";
+  const lost = d.penalty + " XP was taken from your garden.";
+  $("ckNoticeText").textContent = earlier
+    ? "You skipped " + earlier.skips + " days last week, so " + lost
+    : d.penalised
+      ? "You skipped " + n + " days this week, so " + lost
+      : weekend ? "You skipped " + n + " day" + (n === 1 ? "" : "s") + " this week. Skipping " + d.limit + " days in a week costs " + d.penalty + " XP."
+      : "Your check-ins this week are shown below.";
+  $("ckNoticeWarn").textContent = (d.penalised || earlier || weekend) ? "" : "Heads up: if you skip " + d.limit + " days in a week, you lose " + d.penalty + " XP from your garden.";
+  $("ckNoticeGo").textContent = weekend ? "Continue" : "Continue to my check-in";
+  ckNoticeEl.classList.toggle("bad", !!(d.penalised || earlier));
+  ckNoticeEl.hidden = false;
+  $("checkin").classList.add("noticing");
+}
+async function ckEnter() {
+  const d = await ckReady;
+  if (!$("checkin").classList.contains("active")) return;
+  if (d && ckNeedsNotice(d) && !ckNoticeSeen) { ckRenderNotice(d); return; }
+  ckNoticeEl.hidden = true; $("checkin").classList.remove("noticing");
+  if (checkinDone) showView("sense");
+}
+document.getElementById("ckNoticeGo").addEventListener("click", () => {
+  ckNoticeSeen = true;
+  ckNoticeEl.hidden = true;
+  $("checkin").classList.remove("noticing");
+  if (checkinDone) showView("sense");                 // weekend: no questions, straight in
+});
 
 ckSubmit.addEventListener("click", async () => {
   if (!currentUser) return;
@@ -768,8 +811,9 @@ ckSubmit.addEventListener("click", async () => {
   ckSubmit.disabled = true;
   setCkNote("Submitting…");
   try {
-    await api("checkin", { slot: slotForToday(), q1: answers[1], q2: answers[2], q3: answers[3], q4: answers[4] });
+    await api("checkin", { q1: answers[1], q2: answers[2], q3: answers[3], q4: answers[4] });
     checkinDone = true;
+    if (ckInfo) ckInfo.done = true;
     // question 3, first answer: tell the user on the bell (more to come later)
     if (answers[3] === 1) {
       addNotification({ title: "Support resources", text: "Thanks for asking. Browse articles and books on stress, sleep, work-life balance and more.", kind: "resources", thread: "resources" });
@@ -1462,6 +1506,8 @@ function trRender() {
     tabs.appendChild(b);
   });
   $("trForm").hidden = true; $("trList").hidden = true; $("trDetail").hidden = true;
+  $("tracker").classList.toggle("tr-staff", !trIsEmp());
+  trRenderStats();
 
   if (trIsEmp() && trTab === "current") {
     const open = trOpenOnes()[0];
@@ -1473,10 +1519,49 @@ function trRender() {
   trRenderList(rows);
 }
 
+// HR / Admin: a row of counters above the tabs
+function trRenderStats() {
+  const box = $("trStats");
+  if (trIsEmp()) { box.hidden = true; return; }
+  const n = (f) => trItems.filter(f).length;
+  const cards = [
+    { k: "new", t: "New", v: n((c) => c.status === "Active"), d: "waiting to be opened", ic: "M12 3l2.4 5.2 5.6.7-4.1 3.9 1 5.6L12 15.6 7.1 18.4l1-5.6L4 8.9l5.6-.7z" },
+    { k: "going", t: "Ongoing", v: n((c) => c.status === "Ongoing"), d: "being handled", ic: "M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3M18 3v4h-4M6 21v-4h4" },
+    { k: "urgent", t: "Urgent", v: n((c) => c.status !== "Closed" && (c.priority === "High" || c.priority === "Critical")), d: "high or critical", ic: "M12 3 2 20h20L12 3zM12 10v5M12 18v.5" },
+    { k: "done", t: "Closed", v: n((c) => c.status === "Closed"), d: "all time", ic: "M5 12.5l4.5 4.5L19 7.5" },
+  ];
+  box.textContent = "";
+  cards.forEach((c, i) => {
+    const el = document.createElement("div");
+    el.className = "tr-stat " + c.k;
+    el.style.animationDelay = i * 0.07 + "s";
+    el.innerHTML = '<span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' + c.ic + '"/></svg></span><div><b></b><strong>' + c.t + "</strong><small>" + c.d + "</small></div>";
+    const num = el.querySelector("b");
+    // count up
+    const t0 = performance.now(), dur = 600;
+    const tick = (t) => { const p = Math.min(1, (t - t0) / dur); num.textContent = Math.round(c.v * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+    box.appendChild(el);
+  });
+  box.hidden = false;
+}
+const TR_HUES = ["#e8714f", "#d98a3d", "#8fae6c", "#c0608a", "#7a8fc2", "#b4684a"];
+const trHue = (name) => { let h = 0; String(name).split("").forEach((ch) => { h = (h * 31 + ch.charCodeAt(0)) >>> 0; }); return TR_HUES[h % TR_HUES.length]; };
+
 function trRenderList(rows) {
   const box = $("trList");
   box.hidden = false;
   box.textContent = "";
+  box.classList.toggle("staff", !trIsEmp());
+  if (!rows.length && !trIsEmp()) {
+    const e = document.createElement("div");
+    e.className = "tr-calm";
+    e.innerHTML = '<svg viewBox="0 0 120 110" aria-hidden="true"><circle cx="60" cy="58" r="44" fill="#fbe3d4"/><g class="sw"><path d="M60 100C58 74 60 50 66 24" fill="none" stroke="#9ab27a" stroke-width="2.4" stroke-linecap="round"/><g fill="#a9c18a"><path d="M60 84c-18-3-28-13-30-27 17 1 28 11 30 27Z"/><path d="M61 64c16-3 26-13 27-26-15 1-26 10-27 26Z"/><path d="M63 44c-14-3-22-11-24-23 14 1 22 9 24 23Z"/></g></g><g fill="#f0a98d"><circle class="tw" cx="26" cy="30" r="3"/><circle class="tw d" cx="96" cy="44" r="2.5"/><circle class="tw e" cx="90" cy="86" r="3"/></g></svg><h4></h4><p></p>';
+    e.querySelector("h4").textContent = trTab === "history" ? "Nothing in the history yet" : "All caught up!";
+    e.querySelector("p").textContent = trTab === "history" ? "Closed concerns will show up here." : "No open concerns right now. New ones will appear here the moment an employee sends them.";
+    box.appendChild(e);
+    return;
+  }
   if (!rows.length) {
     const e = document.createElement("p");
     e.className = "adm-empty";
@@ -1494,12 +1579,21 @@ function trRenderList(rows) {
     b.className = "tr-row-item";
     const who = document.createElement("span");
     who.className = "tr-who";
-    who.textContent = trIsEmp() ? c.to.map((p) => p.name).join(", ") : c.name;
+    if (trIsEmp()) who.textContent = c.to.map((p) => p.name).join(", ");
+    else {
+      const av = document.createElement("i");
+      av.className = "tr-av"; av.textContent = String(c.name || "?").trim().charAt(0).toUpperCase(); av.style.background = trHue(c.name);
+      const nm = document.createElement("span"); nm.textContent = c.name;
+      who.append(av, nm);
+    }
+    b.dataset.st = c.status.toLowerCase();
+    b.style.animationDelay = Math.min(rows.indexOf(c), 8) * 0.05 + "s";
     const sub = document.createElement("span");
     sub.className = "tr-sub";
     sub.textContent = c.subject;
     const pr = document.createElement("span");
     pr.textContent = c.priority || "–";
+    if (!trIsEmp() && c.priority) { pr.className = "tr-pr pr-" + c.priority.toLowerCase(); pr.prepend(document.createElement("b")); }
     const st = document.createElement("span");
     st.className = "tr-status st-" + c.status.toLowerCase();
     st.textContent = c.status;
@@ -1522,6 +1616,7 @@ function trPaint(c, messages, canGoBack, silent) {
   const st = $("trdStatus");
   st.textContent = c.status;
   st.className = "tr-status st-" + c.status.toLowerCase();
+  $("trDetail").dataset.st = c.status.toLowerCase();
   const tags = $("trdTags");
   tags.textContent = "";
   [c.category, c.priority && c.priority + " priority"].concat(c.support).filter(Boolean).forEach((t) => {
@@ -1812,6 +1907,7 @@ setInterval(() => {
 /* ----- loading ----- */
 async function gdEnter() {
   if (!currentUser) return;
+  await ckReady;                                  // the day counter must be up to date first (testing: a login = a day)
   $("gdAdminTab").hidden = currentUser.role !== "admin";
   $("gdStyle").hidden = currentUser.role !== "admin";
   $("gdFabStyle").hidden = currentUser.role !== "admin";
@@ -2044,7 +2140,7 @@ function gdSend(action, payload) {
 }
 const GD_SAY = { can: "Ahh, that water feels great!", mush: "Yum, thank you!", fert: "I feel stronger already!", afert: "Wow, I grew a whole level!", lady: "A new friend! Hello, Ladybug!", butter: "A butterfly! How lovely." };
 function gdApplyXp(xp) {
-  xp = Math.min(425, Math.max(0, Math.round(xp)));
+  xp = Math.min(425, Math.round(xp));
   let lv = 0;
   for (let i = 1; i < gdThresh.length; i++) if (xp >= gdThresh[i]) lv = i;
   gd.xp = xp; gd.level = lv; gd.max = lv >= 5;
@@ -2102,7 +2198,7 @@ $("gdQuoteBtn").addEventListener("click", async () => {
 });
 
 /* the day changed while the garden was open */
-setInterval(() => { if (gd && !document.hidden && $("garden").classList.contains("active") && gd.today !== gdDay()) gdLoad(); }, 60000);
+setInterval(() => { if (gd && !document.hidden && $("garden").classList.contains("active") && !gd.test && gd.today !== gdDay()) gdLoad(); }, 60000);
 
 /* ----- Admin: everybody's garden ----- */
 const GD_GIFTS = ["can", "mush", "fert", "lady", "butter"];
@@ -2598,6 +2694,7 @@ $("apOtherCard").addEventListener("keydown", (e) => { if (e.key === "Enter") apG
 function apEnter() {
   apTab = apStaff() ? "open" : "current"; apSig = "";
   const other = apKind === "other";
+  $("counseling").dataset.kind = other ? "other" : "counseling";
   $("apTitle").textContent = $("apSideTitle").textContent = other ? "Other Services" : "Counseling & Therapy";
   $("apResetAll").hidden = pgRole() !== "admin";
   $("apLead").textContent = apStaff() ? "Review requests, reply with the appointment details, and close them when done." : other ? "Tell us what kind of help you need. Someone from HR will review it and reply with the details." : "Share what is on your mind. Someone from HR will review it and reply with your appointment.";
@@ -2638,6 +2735,25 @@ function apReplyBox(a) {
   box.appendChild(dl); return box;
 }
 const apKindOf = (a) => (a.kind === "other" ? "other" : "counseling");
+// HR / Admin: counters above the request list
+function apStats(all) {
+  const n = (f) => all.filter(f).length;
+  const cards = [
+    { k: "new", t: "Pending", v: n((a) => a.status === "Pending"), d: "waiting for a reply", ic: "M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" },
+    { k: "going", t: "Scheduled", v: n((a) => a.status === "Scheduled"), d: "appointment set", ic: "M4 7h16M7 3v4M17 3v4M5 7v13h14V7M9 13l2 2 4-4" },
+    { k: "done", t: "Closed", v: n((a) => a.status === "Closed"), d: "all time", ic: "M5 12.5l4.5 4.5L19 7.5" },
+  ];
+  const box = document.createElement("div"); box.className = "tr-stats ap-stats";
+  cards.forEach((c, i) => {
+    const el = document.createElement("div"); el.className = "tr-stat " + c.k; el.style.animationDelay = i * 0.07 + "s";
+    el.innerHTML = '<span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' + c.ic + '"/></svg></span><div><b></b><strong>' + c.t + "</strong><small>" + c.d + "</small></div>";
+    const num = el.querySelector("b"), t0 = performance.now();
+    const tick = (t) => { const p = Math.min(1, (t - t0) / 600); num.textContent = Math.round(c.v * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+    box.appendChild(el);
+  });
+  return box;
+}
 function apRender() {
   const apList = apAll.filter((a) => apKindOf(a) === apKind);
   const body = $("apBody"); body.innerHTML = "";
@@ -2645,9 +2761,11 @@ function apRender() {
     const closed = apTab === "closed";
     const list = apList.filter((a) => (a.status === "Closed") === closed).sort((x, y) => (x.status === "Pending" ? 0 : 1) - (y.status === "Pending" ? 0 : 1) || y.created - x.created);
     if (!list.length) { body.innerHTML = '<div class="pg-empty"></div>'; body.firstChild.textContent = closed ? "No closed requests." : "No open requests right now."; return; }
+    body.appendChild(apStats(apList));
     const wrap = document.createElement("div"); wrap.className = "ap-list";
-    list.forEach((a) => {
-      const row = document.createElement("button"); row.type = "button"; row.className = "ap-row";
+    list.forEach((a, ix) => {
+      const row = document.createElement("button"); row.type = "button"; row.className = "ap-row"; row.style.animationDelay = Math.min(ix, 8) * 0.05 + "s";
+      const av = document.createElement("i"); av.className = "ap-av"; av.textContent = String(a.name || "?").trim().charAt(0).toUpperCase(); av.style.background = trHue(a.name); row.appendChild(av);
       const m = document.createElement("div"); m.className = "ap-main";
       const n = document.createElement("b"); n.textContent = a.name + (a.service ? "  ·  " + a.service : ""); const sn = document.createElement("span"); sn.className = "ap-snip"; sn.textContent = a.reason;
       m.append(n, sn);
@@ -2889,7 +3007,7 @@ async function ohRefresh() {
 function ohRender() {
   const box = $("ohBody"); box.innerHTML = "";
   const bar = document.createElement("div"); bar.className = "nw-bar";
-  bar.innerHTML = "<h3>Partner hospitals</h3><span class=\"sp\"></span>";
+  bar.innerHTML = "<h3>Partner hospitals</h3>" + (ohList.length ? '<span class="nw-count">' + ohList.length + (ohList.length === 1 ? " hospital" : " hospitals") + "</span>" : "") + "<span class=\"sp\"></span>";
   if (nwStaff()) {
     const add = document.createElement("button"); add.type = "button"; add.className = "nw-add"; add.textContent = "+ Add hospital";
     add.addEventListener("click", () => nwOpenForm("Add partner hospital", nwPartnerFields(), async (v) => { await api("hSave", v); pgToast("Hospital added"); await ohRefresh(); }));
@@ -2916,7 +3034,7 @@ function nwRender() {
   $("nwLead").textContent = cat ? "Select a partner to see its description and location." : "Browse our partners by category. Open a category, then select a partner to see its details and location.";
   const bar = document.createElement("div"); bar.className = "nw-bar";
   if (!cat) {
-    bar.innerHTML = "<h3>Categories</h3><span class=\"sp\"></span>";
+    bar.innerHTML = "<h3>Categories</h3>" + (nwCats.length ? '<span class="nw-count">' + nwCats.length + (nwCats.length === 1 ? " category" : " categories") + "</span>" : "") + "<span class=\"sp\"></span>";
     if (nwStaff()) {
       const add = document.createElement("button"); add.type = "button"; add.className = "nw-add"; add.textContent = "+ Add category";
       add.addEventListener("click", () => nwOpenForm("Add category", [{ id: "name", label: "Category name", max: 80, required: true, ph: "e.g. Dental, Laboratory, Clinics" }], async (v) => { await api("nCat", v); pgToast("Category added"); await nwRefresh(); }));
@@ -2946,7 +3064,9 @@ function nwRender() {
   const back = document.createElement("button"); back.type = "button"; back.className = "nw-back"; back.textContent = "All categories";
   back.addEventListener("click", () => { nwCur = null; nwOpenId = ""; nwRender(); });
   const t = document.createElement("h3"); t.textContent = cat.name;
-  bar.append(back, t, Object.assign(document.createElement("span"), { className: "sp" }));
+  bar.append(back, t);
+  if (cat.providers.length) bar.appendChild(Object.assign(document.createElement("span"), { className: "nw-count", textContent: cat.providers.length + (cat.providers.length === 1 ? " partner" : " partners") }));
+  bar.appendChild(Object.assign(document.createElement("span"), { className: "sp" }));
   if (nwStaff()) {
     const add = document.createElement("button"); add.type = "button"; add.className = "nw-add"; add.textContent = "+ Add partner";
     add.addEventListener("click", () => nwOpenForm("Add partner to " + cat.name, nwPartnerFields(), async (v) => { await api("nProv", Object.assign({ cat: cat.id }, v)); pgToast("Partner added"); await nwRefresh(); }));
