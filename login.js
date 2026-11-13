@@ -474,7 +474,7 @@ function fly(flyers, start, end, inPlace) {
    ===================================================== */
 const pages = document.querySelectorAll(".page");
 const navLinks = document.querySelectorAll(".nav-link");
-const parentOf = { sense: "services", nurture: "services", resources: "services", programs: "services", support: "services", counseling: "services", checkin: "services", tracker: "services", occhealth: "services", network: "services", faqs: "services" };   // which nav link stays highlighted
+const parentOf = { sense: "services", nurture: "services", resources: "services", programs: "services", support: "services", counseling: "services", checkin: "services", tracker: "services", occhealth: "services", network: "services", faqs: "services", calendar: "services", calChoose: "services" };   // which nav link stays highlighted
 
 function showView(name, fromPop) {
   // employees fill in the Workday Check-In before they get into Mantra Sense
@@ -489,6 +489,7 @@ function showView(name, fromPop) {
   if (name === "checkin" && typeof ckEnter === "function") ckEnter();
   if (name === "occhealth" && typeof ohEnter === "function") ohEnter();
   if (name === "network" && typeof nwEnter === "function") nwEnter();
+  if (name === "calendar" && typeof calEnter === "function") calEnter();
   if (name === "programs" && typeof pgEnter === "function") pgEnter();
   if (name === "counseling" && typeof apEnter === "function") apEnter();
   if (name === "support" && typeof apSupportEnter === "function") apSupportEnter();
@@ -496,6 +497,7 @@ function showView(name, fromPop) {
 
   const wasHome = !document.querySelector(".page.active");
   pages.forEach((p) => p.classList.toggle("active", p === target));   // "home" = no page on top
+  { const db = document.getElementById("dashboard"); if (db) { db.scrollLeft = 0; db.scrollTop = 0; } }   // a click far to the right must not leave the app shifted sideways
   if (name === "about" && typeof window.aboutEnter === "function") window.aboutEnter();
   const top = parentOf[name] || name;
   navLinks.forEach((a) => a.classList.toggle("active", a.dataset.view === top));
@@ -683,7 +685,7 @@ async function api(action, payload = {}) {
   if (action !== "icon" && data.v !== BACKEND_VERSION) throw new Error("outdated");
   return data;
 }
-const BACKEND_VERSION = 26;
+const BACKEND_VERSION = 27;
 
 const adminLink = document.getElementById("adminLink");
 const teamBtn   = document.getElementById("teamBtn");
@@ -3098,4 +3100,260 @@ document.querySelectorAll("#programs .pg-side, #support .pg-side, #occhealth .pg
   const h = side.querySelector("h3");
   if (h) h.addEventListener("click", () => side.classList.toggle("open"));
   side.addEventListener("click", (e) => { if (e.target.closest(".pg-tab")) side.classList.remove("open"); });
+});
+
+
+/* =====================================================
+   MANTRA SENSE > REVIEW: the calendar
+   Employees: their own calendar. HR / Admin: pick Personal or Employees calendar (Home Calendar + each employee).
+   ===================================================== */
+const CAL_ICON = {
+  ot: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V3.5" fill="none" stroke="#c9443a" stroke-width="2.2" stroke-linecap="round"/><path d="M6.5 4.5h12l-3 4.3 3 4.3h-12Z" fill="#d9534a" stroke="#c9443a" stroke-width="1.4" stroke-linejoin="round"/></svg>',
+  event: '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="#e8714f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></g><g fill="#e8714f"><circle cx="8" cy="13.4" r="1.1"/><circle cx="12" cy="13.4" r="1.1"/><circle cx="16" cy="13.4" r="1.1"/><circle cx="8" cy="17" r="1.1"/><circle cx="12" cy="17" r="1.1"/></g></svg>',
+  leave: '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="#8f8b5c"><path d="M12 4C9.5 7 9.5 12 12 18c2.5-6 2.5-11 0-14Z"/><path d="M4 8.5c4 .2 7 3.6 8 9.5-4-.2-7-3.4-8-9.5Z" opacity=".85"/><path d="M20 8.5c-4 .2-7 3.6-8 9.5 4-.2 7-3.4 8-9.5Z" opacity=".85"/><path d="M3 18.8c3 2 6 2.6 9 2.6s6-.6 9-2.6c-3 .6-6 .9-9 .9s-6-.3-9-.9Z" opacity=".7"/></g></svg>',
+};
+CAL_ICON.prog = CAL_ICON.event;
+const CAL_NAME = { ot: "OT Day", event: "Event", leave: "Personal / Leave", prog: "Program" };
+const CAL_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const CAL_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const calEsc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const calYmd = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+const calParse = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s); return new Date(+m[1], +m[2] - 1, +m[3]); };
+const calLong = (s) => { const d = calParse(s); return CAL_DAYS[d.getDay()] + ", " + CAL_MONTHS[d.getMonth()].slice(0, 3) + " " + d.getDate() + ", " + d.getFullYear(); };
+const calShort = (s) => { const d = calParse(s); return CAL_MONTHS[d.getMonth()].slice(0, 3) + " " + d.getDate() + ", " + d.getFullYear(); };
+const calTime12 = (hhmm) => { const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm || ""); if (!m) return ""; let h = +m[1]; const ap = h >= 12 ? "PM" : "AM"; h = h % 12 || 12; return h + ":" + m[2] + " " + ap; };
+const calTime24 = (t) => { const m = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(t || ""); if (!m) return ""; let h = +m[1] % 12; if (m[3].toUpperCase() === "PM") h += 12; return String(h).padStart(2, "0") + ":" + m[2]; };
+
+const calS = { y: 0, m: 0, mode: "me", target: "home", brush: "", data: null, byDate: {}, editing: null, day: "", want: "me" };
+
+function calStaff() { return pgRole() === "hr" || pgRole() === "admin"; }
+function calEnter() {
+  const staff = calStaff();
+  calS.mode = staff && calS.want === "employees" ? "employees" : "me";
+  const now = new Date(); calS.y = now.getFullYear(); calS.m = now.getMonth();
+  calS.brush = ""; calS.target = "home";
+  $("calEmp").hidden = calS.mode !== "employees";
+  $("calResetMe").hidden = !(pgRole() === "admin" && calS.mode === "me");
+  $("calResetEmp").hidden = $("calResetAll").hidden = !(pgRole() === "admin" && calS.mode === "employees");
+  $("calDdList").hidden = true; $("calDd").setAttribute("aria-expanded", "false"); $("calDd").classList.remove("open");
+  $("calTitle").textContent = "Calendar";
+  $("calSub").textContent = calS.mode === "employees" ? "Set the Home Calendar and see each employee's calendar." : "Stay updated with your schedule and company events.";
+  calS.data = null; calS.byDate = {};
+  calRenderAll();
+  calLoad();
+}
+async function calLoad() {
+  const target = calS.mode === "employees" ? calS.target : "me";
+  try {
+    const d = await api("calGet", { target });
+    if ((calS.mode === "employees" ? calS.target : "me") !== target) return;       // changed while loading
+    calS.data = d;
+    calIndex();
+    calRenderAll();
+  } catch (e) { pgToast(String(e.message) === "outdated" ? "Please update the Apps Script (version 27)" : "Couldn't load the calendar"); }
+}
+function calProgInfo(p) {
+  const now = (calS.data && calS.data.now) || Date.now();
+  if (p.closed) return { t: "Closed", c: "x" };
+  if (p.end && p.end < now) return { t: "Ended", c: "x" };
+  return { t: "Still available", c: "ok" };
+}
+function calIndex() {
+  const by = {}, d = calS.data;
+  const add = (date, item) => { (by[date] = by[date] || []).push(item); };
+  (d.entries || []).forEach((e) => add(e.date, { src: "entry", kind: e.kind, e }));
+  (d.programs || []).forEach((p) => {
+    const a = new Date(p.start), b = new Date(p.end || p.start);
+    const d0 = new Date(a.getFullYear(), a.getMonth(), a.getDate()), d1 = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+    for (let x = new Date(d0), n = 0; x <= d1 && n < 62; x.setDate(x.getDate() + 1), n++) add(calYmd(x), { src: "prog", kind: "prog", p });
+  });
+  calS.byDate = by;
+}
+function calCanEdit() { return !!(calS.data && calS.data.editable); }
+
+function calRenderAll() { calRenderHead(); calRenderGrid(); calRenderUp(); calRenderSide(); }
+function calRenderHead() {
+  $("calMonth").textContent = CAL_MONTHS[calS.m] + " " + calS.y;
+  calRenderSum();
+  const v = $("calViewing"), d = calS.data;
+  if (calS.mode === "employees" && d) { v.hidden = false; v.innerHTML = d.home ? "Viewing <b>Home Calendar</b> &middot; events here show for the people you choose" : "Viewing <b>" + calEsc(d.targetName) + "</b>&rsquo;s calendar &middot; view only"; }
+  else v.hidden = true;
+  const hint = $("calHint");
+  const editable = calCanEdit() && !(d && d.home);
+  document.querySelectorAll("#calLegend .cal-leg").forEach((b) => { b.classList.toggle("on", calS.brush === b.dataset.kind); b.disabled = !editable; });
+  hint.textContent = !editable ? (d && d.home ? "Tap a day to add a Home Calendar event." : "View only.") : calS.brush ? "Marking as " + CAL_NAME[calS.brush] + ". Tap days to " + (calS.brush === "event" ? "add events" : "mark or unmark") + ". Tap the item again to stop." : "Tap a legend item, then tap days to mark them.";
+}
+function calRenderSum() {
+  const box = $("calSum"); if (!box) return;
+  const pre = calS.y + "-" + String(calS.m + 1).padStart(2, "0") + "-", n = { ot: 0, event: 0, leave: 0 };
+  Object.keys(calS.byDate).forEach((d) => {
+    if (d.indexOf(pre) !== 0) return;
+    const ks = {}; calS.byDate[d].forEach((it) => { ks[it.kind === "prog" ? "event" : it.kind] = 1; });
+    Object.keys(ks).forEach((k) => n[k]++);
+  });
+  box.innerHTML = ["ot", "event", "leave"].map((k) => '<span class="cal-chip ' + k + '" title="' + CAL_NAME[k] + 's this month">' + CAL_ICON[k] + '<b>' + n[k] + '</b></span>').join("");
+}
+function calRenderGrid() {
+  const g = $("calGrid"), first = new Date(calS.y, calS.m, 1), start = new Date(calS.y, calS.m, 1 - first.getDay());
+  const today = calYmd(new Date());
+  let html = "";
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i), ymd = calYmd(d);
+    const items = calS.byDate[ymd] || [], kinds = [];
+    items.forEach((it) => { if (kinds.indexOf(it.kind) === -1) kinds.push(it.kind); });
+    const top = kinds.indexOf("ot") !== -1 ? "ot" : kinds.indexOf("leave") !== -1 ? "leave" : kinds.length ? "event" : "";
+    const first1 = items.find((it) => it.src === "entry" && it.e.title) || items.find((it) => it.src === "prog");
+    const label = first1 ? (first1.src === "prog" ? first1.p.title : first1.e.title) : "";
+    html += '<button type="button" class="cal-cell' + (d.getMonth() !== calS.m ? " out" : "") + (ymd === today ? " today" : "") + (top ? " k-" + top : "") + (d.getDay() % 6 === 0 ? " wk" : "") + '" data-d="' + ymd + '" style="--i:' + i + '">' +
+      '<span class="cal-n">' + d.getDate() + '</span>' +
+      (kinds.length ? '<span class="cal-ic">' + kinds.slice(0, 3).map((k) => CAL_ICON[k]).join("") + '</span>' : "") +
+      (label ? '<span class="cal-lb">' + calEsc(label) + (items.length > 1 ? " +" + (items.length - 1) : "") + '</span>' : "") + '</button>';
+  }
+  g.innerHTML = html;
+  g.classList.remove("swap"); void g.offsetWidth; g.classList.add("swap");
+}
+function calRenderUp() {
+  const box = $("calUp"), d = calS.data;
+  if (!d) { box.innerHTML = '<p class="cal-none">Loading…</p>'; return; }
+  const today = calYmd(new Date()), list = [];
+  (d.entries || []).forEach((e) => { if (e.kind === "event" && e.date >= today) list.push({ date: e.date, time: e.time, title: e.title, tag: e.home ? "Company" : "" }); });
+  (d.programs || []).forEach((p) => {
+    const info = calProgInfo(p); if (info.c === "x") return;
+    const s = new Date(p.start); let ds = calYmd(s); if (ds < today) ds = today;
+    list.push({ date: ds, time: p.start >= Date.now() ? calTime12(String(s.getHours()).padStart(2, "0") + ":" + String(s.getMinutes()).padStart(2, "0")) : "", title: p.title, tag: "Program" });
+  });
+  list.sort((a, b) => a.date.localeCompare(b.date) || calTime24(a.time).localeCompare(calTime24(b.time)));
+  box.innerHTML = list.length ? list.slice(0, 5).map((x) => '<button type="button" class="cal-upi" data-d="' + x.date + '"><i></i><span><small>' + calShort(x.date) + (x.time ? " - " + calEsc(x.time) : "") + '</small><b>' + calEsc(x.title) + '</b>' + (x.tag ? '<em>' + x.tag + '</em>' : "") + '</span><u>&rsaquo;</u></button>').join("") : '<p class="cal-none">Nothing coming up.</p>';
+}
+function calRenderSide() {
+  if (calS.mode !== "employees") return;
+  const d = calS.data, people = (d && d.people) || [];
+  $("calHomeBtn").classList.toggle("on", calS.target === "home");
+  $("calEmpN").textContent = people.length;
+  const q = ($("calEmpFind").value || "").trim().toLowerCase();
+  const rows = people.filter((p) => !q || p.name.toLowerCase().includes(q) || p.username.toLowerCase().includes(q));
+  $("calEmpList").innerHTML = rows.length ? rows.map((p) => '<button type="button" class="cal-emp-i' + (calS.target.toLowerCase() === p.username.toLowerCase() ? " on" : "") + '" data-u="' + calEsc(p.username) + '"><span class="cal-av">' + calEsc((p.name || "?").trim().charAt(0).toUpperCase()) + '</span>' + calEsc(p.name) + '</button>').join("") : '<p class="cal-none">No employees found.</p>';
+}
+
+/* open a day */
+function calOpenDay(ymd) {
+  calS.day = ymd; calS.editing = null;
+  $("calDayTitle").textContent = calLong(ymd);
+  calRenderDay();
+  $("calDay").hidden = false;
+}
+function calRenderDay() {
+  const items = calS.byDate[calS.day] || [], d = calS.data, edit = calCanEdit();
+  const mayDel = (e) => edit && (e.home ? calStaff() && d.home : !d.home);
+  $("calDayList").innerHTML = items.length ? items.map((it, i) => {
+    if (it.src === "prog") {
+      const info = calProgInfo(it.p);
+      return '<div class="cal-di"><span class="cal-dic">' + CAL_ICON.prog + '</span><div><b>' + calEsc(it.p.title) + '</b><small>Program &middot; <em class="' + info.c + '">' + info.t + '</em></small></div><button type="button" class="cal-go" data-go="programs">Open</button></div>';
+    }
+    const e = it.e, tag = e.home ? "Company event" : CAL_NAME[e.kind];
+    return '<div class="cal-di"><span class="cal-dic">' + CAL_ICON[e.kind] + '</span><div><b>' + calEsc(e.title || CAL_NAME[e.kind]) + '</b><small>' + tag + (e.time ? " &middot; " + calEsc(e.time) : "") + (e.home && e.vis ? " &middot; " + calVisText(e.vis) : "") + '</small>' + (e.note ? '<p>' + calEsc(e.note) + '</p>' : "") + '</div>' +
+      (mayDel(e) ? '<button type="button" class="cal-edit" data-edit="' + e.id + '">Edit</button><button type="button" class="cal-del" data-del="' + e.id + '" aria-label="Remove">&times;</button>' : "") + '</div>';
+  }).join("") : '<p class="cal-none">Nothing on this day.</p>';
+  const form = $("calForm");
+  form.hidden = !edit;
+  if (!edit) return;
+  const home = !!d.home;
+  $("calKinds").hidden = home;
+  $("calVis").hidden = !home;
+  const ed = calS.editing ? (d.entries || []).find((x) => x.id === calS.editing) : null;
+  $("calFormHd").textContent = ed ? "Edit" : home ? "Add a Home Calendar event" : "Add to this day";
+  if (home) calS.kind = "event"; else if (ed) calS.kind = ed.kind; else if (!calS.kind) calS.kind = calS.brush || "event";
+  document.querySelectorAll("#calKinds button").forEach((b) => b.classList.toggle("on", b.dataset.kind === calS.kind));
+  calKindUi();
+  $("calfTitle").value = ed ? ed.title : ""; $("calfTime").value = ed ? calTime24(ed.time) : ""; $("calfNote").value = ed ? ed.note : "";
+  if (home) {
+    const vis = ed && ed.vis ? ed.vis : { mode: "all", users: [] };
+    $("calfVis").value = vis.mode; calRenderVisList(vis.users || []);
+  }
+  $("calfErr").hidden = true;
+  $("calfSave").textContent = ed ? "Save changes" : "Save";
+}
+function calVisText(v) { return v.mode === "employees" ? "Employees only" : v.mode === "staff" ? "HR & Admin only" : v.mode === "users" ? (v.users || []).length + " selected" : "Everyone"; }
+function calKindUi() {
+  const ev = calS.kind === "event" || calS.data.home;
+  $("calfTitleL").textContent = ev ? "Title" : "Title (optional)";
+  $("calfTitle").placeholder = calS.kind === "ot" ? "e.g. Night shift cover" : calS.kind === "leave" ? "e.g. Day off" : "e.g. Dentist appointment";
+}
+function calRenderVisList(sel) {
+  const people = (calS.data && calS.data.people) || [], on = $("calfVis").value === "users";
+  const box = $("calVisList"); box.hidden = !on;
+  box.innerHTML = people.map((p) => '<label class="cal-vi"><input type="checkbox" value="' + calEsc(p.username) + '"' + (sel.map((s) => s.toLowerCase()).includes(p.username.toLowerCase()) ? " checked" : "") + '> ' + calEsc(p.name) + '</label>').join("") || '<p class="cal-none">No employees yet.</p>';
+}
+
+async function calSaveForm(ev) {
+  ev.preventDefault();
+  const d = calS.data, home = !!d.home, err = $("calfErr");
+  const payload = { owner: home ? "home" : "me", date: calS.day, kind: home ? "event" : calS.kind, title: $("calfTitle").value.trim(), time: calTime12($("calfTime").value), note: $("calfNote").value.trim() };
+  if (calS.editing) payload.id = calS.editing;
+  if (home) payload.vis = { mode: $("calfVis").value, users: [...document.querySelectorAll("#calVisList input:checked")].map((x) => x.value) };
+  if (payload.kind === "event" && !payload.title) { err.textContent = "Please give the event a title."; err.hidden = false; return; }
+  const btn = $("calfSave"); btn.disabled = true;
+  try { await api("calSave", payload); calS.editing = null; await calLoad(); calRenderDay(); pgToast("Saved"); }
+  catch (e) { err.textContent = String(e.message) === "outdated" ? "Please update the Apps Script (version 27)." : e.message === "failed" ? "Couldn't save. Try again." : e.message; err.hidden = false; }
+  btn.disabled = false;
+}
+async function calRemove(id) {
+  try { await api("calDelete", { id }); if (calS.editing === id) calS.editing = null; await calLoad(); if (!$("calDay").hidden) calRenderDay(); }
+  catch (e) { pgToast("Couldn't remove"); }
+}
+async function calQuickMark(ymd) {            // legend armed: tap a day to mark / unmark OT Day or Leave
+  const mine = (calS.data.entries || []).find((e) => e.date === ymd && !e.home && e.kind === calS.brush);
+  try {
+    if (mine) await api("calDelete", { id: mine.id });
+    else await api("calSave", { owner: "me", date: ymd, kind: calS.brush, title: "", time: "", note: "" });
+    await calLoad();
+  } catch (e) { pgToast(e.message && e.message !== "failed" && e.message !== "outdated" ? e.message : "Couldn't save"); }
+}
+
+/* wiring */
+$("snReview").addEventListener("click", () => {
+  if (calStaff()) showView("calChoose"); else { calS.want = "me"; showView("calendar"); }
+});
+$("ccPersonal").addEventListener("click", () => { calS.want = "me"; showView("calendar"); });
+$("ccEmployees").addEventListener("click", () => { calS.want = "employees"; showView("calendar"); });
+$("calPrev").addEventListener("click", () => { calS.m--; if (calS.m < 0) { calS.m = 11; calS.y--; } calRenderHead(); calRenderGrid(); });
+$("calToday").addEventListener("click", () => { const n = new Date(); calS.y = n.getFullYear(); calS.m = n.getMonth(); calRenderHead(); calRenderGrid(); });
+$("calNext").addEventListener("click", () => { calS.m++; if (calS.m > 11) { calS.m = 0; calS.y++; } calRenderHead(); calRenderGrid(); });
+$("calGrid").addEventListener("click", (e) => {
+  const c = e.target.closest(".cal-cell"); if (!c || !calS.data) return;
+  const ymd = c.dataset.d;
+  if (calS.brush && calCanEdit() && !calS.data.home) {
+    if (calS.brush === "event") { calS.kind = "event"; calOpenDay(ymd); }
+    else calQuickMark(ymd);
+    return;
+  }
+  calS.kind = ""; calOpenDay(ymd);
+});
+document.querySelectorAll("#calLegend .cal-leg").forEach((b) => b.addEventListener("click", () => { calS.brush = calS.brush === b.dataset.kind ? "" : b.dataset.kind; calRenderHead(); }));
+$("calUp").addEventListener("click", (e) => { const b = e.target.closest(".cal-upi"); if (!b) return; const d = calParse(b.dataset.d); calS.y = d.getFullYear(); calS.m = d.getMonth(); calRenderHead(); calRenderGrid(); calS.kind = ""; calOpenDay(b.dataset.d); });
+document.querySelectorAll("#calKinds button").forEach((b) => b.addEventListener("click", () => { calS.kind = b.dataset.kind; document.querySelectorAll("#calKinds button").forEach((x) => x.classList.toggle("on", x === b)); calKindUi(); }));
+$("calDayEl").addEventListener("submit", calSaveForm);
+$("calDayList").addEventListener("click", (e) => {
+  const del = e.target.closest("[data-del]"), ed = e.target.closest("[data-edit]"), go = e.target.closest("[data-go]");
+  if (del) calRemove(del.dataset.del);
+  else if (ed) { calS.editing = ed.dataset.edit; calRenderDay(); $("calfTitle").focus(); }
+  else if (go) { $("calDay").hidden = true; showView(go.dataset.go); }
+});
+const calCloseDay = () => { $("calDay").hidden = true; calS.editing = null; };
+$("calDayX").addEventListener("click", calCloseDay);
+$("calfCancel").addEventListener("click", calCloseDay);
+$("calDay").addEventListener("mousedown", (e) => { if (e.target === $("calDay")) calCloseDay(); });
+$("calfVis").addEventListener("change", () => calRenderVisList([...document.querySelectorAll("#calVisList input:checked")].map((x) => x.value)));
+$("calHomeBtn").addEventListener("click", () => { calS.target = "home"; calS.data = null; calS.byDate = {}; calRenderAll(); calLoad(); });
+$("calDd").addEventListener("click", () => { const open = $("calDdList").hidden; $("calDdList").hidden = !open; $("calDd").classList.toggle("open", open); $("calDd").setAttribute("aria-expanded", String(open)); if (open) $("calEmpFind").focus(); });
+$("calEmpFind").addEventListener("input", calRenderSide);
+$("calEmpList").addEventListener("click", (e) => { const b = e.target.closest(".cal-emp-i"); if (!b) return; calS.target = b.dataset.u; calS.data = null; calS.byDate = {}; calRenderAll(); calLoad(); });
+armConfirm($("calResetMe"), "Reset my calendar", "Sure? Clears all my marks & events", async () => {
+  try { await api("calReset", { target: "me" }); await calLoad(); pgToast("Calendar reset"); } catch (e) { pgToast("Couldn't reset"); }
+});
+armConfirm($("calResetEmp"), "Reset this calendar", "Sure? Clears everything on it", async () => {
+  try { await api("calReset", { target: calS.target }); await calLoad(); pgToast("Calendar reset"); } catch (e) { pgToast("Couldn't reset"); }
+});
+armConfirm($("calResetAll"), "Reset all employees", "Sure? Clears every employee's marks", async () => {
+  try { await api("calReset", { target: "employees" }); await calLoad(); pgToast("Employees' calendars reset"); } catch (e) { pgToast("Couldn't reset"); }
 });
