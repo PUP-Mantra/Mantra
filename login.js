@@ -11,133 +11,31 @@ function show(text, ok = false) {
 }
 
 /* =====================================================
-   ACCOUNTS: read live from your Google Sheet, every time someone logs in
-   column A = name, B = username, C = password
-   Works from a local file and from GitHub Pages.
+   ACCOUNTS: kept in a private Google Sheet. The website never reads it: the Apps Script checks the username and
+   password and only sends back what the person needs (name, role, group, icon).
    ===================================================== */
-const SHEET_ID = "1JcPBGGQcAQnEkOk2RVHYHjOl6rvFUYopazLrCGYMR5A";
-
-// false = if the sheet can't be read, login fails with a message (recommended)
-// true  = if the sheet can't be read, use the ACCOUNTS list below instead
-const ALLOW_OFFLINE_FALLBACK = false;
-const ACCOUNTS = [
-  { name: "Admin", username: "Admin", password: "1234" },
-];
 
 /* =====================================================
    ICONS: paste your Apps Script web-app URL here (see mantra-backend.gs)
    ===================================================== */
 const ICON_API = "https://script.google.com/macros/s/AKfycbw6UEjNxJF_GV1MGfmw30e_7nY-r2yJpLsn4fvwd__FitfOo7w-BgVz-m7jB6s3uWkTpg/exec";
 
-function rowsToAccounts(rows) {
-  return rows
-    .map((r) => ({
-      name: (r[0] || "").trim(),
-      username: (r[1] || "").trim(),
-      password: (r[2] || "").trim(),
-      role: (r[3] || "").trim(),              // column D: Admin / HR / Employee
-      icon: (r[4] || "").trim(),              // column E: the icon they picked (Drive file id), empty = default
-    }))
-    // skip empty rows, the "Accounts" title row and the Name/Username/Password header row
-    .filter((a) => a.username && a.username.toLowerCase() !== "username");
-}
-
-// 1) JSON method (works everywhere, but Google drops cells that don't match the column's main type)
-function fetchJsonAccounts() {
-  return new Promise((resolve) => {
-    const callbackName = "sheetCallback" + Date.now();
-    const script = document.createElement("script");
-    let timer;
-
-    const finish = (result) => {
-      clearTimeout(timer);
-      delete window[callbackName];
-      script.remove();
-      resolve(result);
-    };
-
-    timer = setTimeout(() => {
-      console.warn("Account sheet: no answer after 6 seconds. Is the sheet shared as 'Anyone with the link can view'?");
-      finish(null);
-    }, 6000);
-
-    window[callbackName] = (data) => {
-      try {
-        if (!data || data.status !== "ok") {
-          throw new Error("Google answered: " + JSON.stringify(data && data.errors));
-        }
-        const rows = data.table.rows.map((r) =>
-          (r.c || []).map((cell) => {
-            if (!cell) return "";
-            // prefer the text exactly as shown in the sheet, then the raw value
-            if (cell.f !== null && cell.f !== undefined) return String(cell.f);
-            return cell.v !== null && cell.v !== undefined ? String(cell.v) : "";
-          })
-        );
-        finish(rowsToAccounts(rows));
-      } catch (err) {
-        console.warn("Account sheet could not be read:", err.message);
-        finish(null);
-      }
-    };
-
-    script.onerror = () => {
-      console.warn("Account sheet could not be loaded (network problem).");
-      finish(null);
-    };
-
-    // loaded as a script, so the browser does not block it
-    script.src =
-      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq` +
-      `?tqx=out:json;responseHandler:${callbackName}&headers=0&_=${Date.now()}`;
-    document.head.appendChild(script);
+// asks the script to check the username and password; the answer is the person's profile, or an error
+async function serverLogin(username, password) {
+  const res = await fetch(ICON_API, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },       // plain text avoids a CORS preflight
+    body: JSON.stringify({ action: "login", username, password }),
   });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || "failed");
+  if (data.v !== BACKEND_VERSION) throw new Error("outdated");
+  return data;
 }
 
-// 2) CSV method: every cell comes back as text, so numbers and letters can be mixed freely
-function parseCsv(text) {
-  const rows = [];
-  let row = [], cell = "", quoted = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (quoted) {
-      if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
-      else if (c === '"') quoted = false;
-      else cell += c;
-    } else if (c === '"') quoted = true;
-    else if (c === ",") { row.push(cell); cell = ""; }
-    else if (c === "\n" || c === "\r") {
-      if (c === "\r" && text[i + 1] === "\n") i++;
-      row.push(cell); rows.push(row); row = []; cell = "";
-    } else cell += c;
-  }
-  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
-  return rows;
-}
-
-async function fetchCsvAccounts() {
-  try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 6000);
-    const res = await fetch(
-      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=0&_=${Date.now()}`,
-      { signal: ctrl.signal, cache: "no-store" }
-    );
-    clearTimeout(timer);
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    return rowsToAccounts(parseCsv(await res.text()));
-  } catch (err) {
-    console.warn("Account sheet (CSV) could not be read:", err.message);
-    return null;
-  }
-}
-
-// returns the list of accounts (from both methods combined), or null if the sheet could not be read at all
-async function fetchAccounts() {
-  const [a, b] = await Promise.all([fetchJsonAccounts(), fetchCsvAccounts()]);
-  if (!a && !b) return null;
-  return [...(a || []), ...(b || [])];
-}
+// Google puts an idle script to sleep; this wakes it while the person types, so logging in does not wait for it
+let iconListP = null;
+if (ICON_API) { try { iconListP = fetch(ICON_API + "?action=icons", { cache: "no-store" }).then((r) => r.json()).catch(() => null); } catch (e) {} }      // also wakes the script
 
 /* ---------- Login ---------- */
 form.addEventListener("submit", async (e) => {
@@ -155,43 +53,38 @@ form.addEventListener("submit", async (e) => {
   button.disabled = true;
   show("");
 
-  let accounts = await fetchAccounts();     // fresh copy of the sheet on every login
-  if (!accounts) {
-    if (ALLOW_OFFLINE_FALLBACK) {
-      accounts = ACCOUNTS;
-    } else {
-      show("Couldn't read the account sheet. Check your internet and that the sheet is shared as “Anyone with the link can view”.");
-      button.disabled = false;
-      return;
-    }
-  }
-
-  // username is not case-sensitive, password is
-  const account = accounts.find(
-    (a) => a.username.toLowerCase() === username.toLowerCase() && a.password === password
-  );
-
-  // readable-sheet diagnostics (open the browser console to see them)
-  console.table(accounts.map((a) => ({ username: a.username, "password read": a.password ? "yes (" + a.password.length + " chars)" : "NO - empty" })));
-
-  if (account) {
-    busy = true;
-    currentUser = {
-      username: account.username,
-      password: account.password,
-      icon: account.icon || "",
-      role: normalizeRole(account.role),
-      name: account.name || account.username,
-    };
-    setUser(account.name || account.username);
-    applyIcon(currentUser.icon);
-    setupRole();
-    show("Login successful!", true);
-    setTimeout(playTransition, 300);
-  } else {
-    show("Incorrect username or password.");
+  let account = null;
+  try {
+    account = await serverLogin(username, password);
+  } catch (err) {
+    show(/wrong username|incorrect/i.test(err.message) ? "Incorrect username or password."
+      : /too many/i.test(err.message) ? err.message
+      : err.message === "outdated" ? "The backend script is out of date. Please deploy the newest version."
+      : "Couldn't reach Mantra. Check your internet and try again.");
     button.disabled = false;
+    return;
   }
+
+  busy = true;
+  if (account.pic && account.icon) {                       // seed the picture cache so the avatar shows with no extra request
+    const u = "data:" + account.pic.mime + ";base64," + account.pic.b64;
+    pgIconCache.set(account.icon, Promise.resolve(u));
+    try { localStorage.setItem("mi_" + account.icon, u); } catch (e) {}
+  }
+  currentUser = {
+    username: account.username,
+    password: password,
+    icon: account.icon || "",
+    group: account.group || "",
+    role: normalizeRole(account.role),
+    name: account.name || account.username,
+  };
+  setUser(currentUser.name);
+  applyIcon(currentUser.icon);
+  bootStart();                                              // the first requests go out now, while the login animation plays
+  setupRole();
+  show("Login successful!", true);
+  setTimeout(playTransition, 300);
 });
 
 /* ---------- Put the user's name on the dashboard ---------- */
@@ -343,10 +236,11 @@ const PIECES = [
 ];
 
 /* ---------- Timing (ms) ---------- */
-const FADE_CARD_MS    = 1000;  // 1. login card slowly fades out
-const REARRANGE_START = 600;   // 2. pieces start moving into the lotus this long after the fade begins
-const REARRANGE_MS    = 1400;  //    time for each piece to slide into place
-const REARRANGE_GAP   = 60;    //    delay between one piece and the next
+const ANIM_SCALE      = 0.6;   // login animation speed: 1 = the original (slow) timing, smaller = faster
+const FADE_CARD_MS    = 1000 * ANIM_SCALE;  // 1. login card slowly fades out
+const REARRANGE_START = 600 * ANIM_SCALE;   // 2. pieces start moving into the lotus this long after the fade begins
+const REARRANGE_MS    = 1400 * ANIM_SCALE;  //    time for each piece to slide into place
+const REARRANGE_GAP   = 60 * ANIM_SCALE;    //    delay between one piece and the next
 const LOTUS_SIZE      = 0.9;   //    size of the lotus in the middle (1 = same box as the login logo)
 // 3. when the lotus is formed, it flies to the nav
 
@@ -435,12 +329,12 @@ function fly(flyers, start, end, inPlace) {
   setTimeout(() => {
     dash.classList.add("show");
     dash.setAttribute("aria-hidden", "false");
-  }, 250);
+  }, 250 * ANIM_SCALE);
 
   //                 logo-1 logo-2 logo-3 logo-4 logo-5 logo-6
   const arcs      = [ -120,    90,  -200,  -190,  -100,   100 ];
-  const delays    = [    0,   120,   800,     0,   100,   300 ];
-  const durations = [ 1900,  1900,  1700,  1100,  1100,  1800 ];
+  const delays    = [    0,   120,   800,     0,   100,   300 ].map((n) => n * ANIM_SCALE);
+  const durations = [ 1900,  1900,  1700,  1100,  1100,  1800 ].map((n) => n * ANIM_SCALE);
 
   const flights = flyers.map((f, i) => {
     const a = inPlace[i];
@@ -474,11 +368,11 @@ function fly(flyers, start, end, inPlace) {
    ===================================================== */
 const pages = document.querySelectorAll(".page");
 const navLinks = document.querySelectorAll(".nav-link");
-const parentOf = { sense: "services", nurture: "services", resources: "services", programs: "services", support: "services", counseling: "services", checkin: "services", tracker: "services", occhealth: "services", network: "services", faqs: "services", calendar: "services", calChoose: "services" };   // which nav link stays highlighted
+const parentOf = { sense: "services", nurture: "services", resources: "services", programs: "services", support: "services", counseling: "services", checkin: "services", tracker: "services", occhealth: "services", network: "services", faqs: "services", calendar: "services", calChoose: "services", wea: "services", weaChoose: "services", weaBuild: "services", weaResults: "services" };   // which nav link stays highlighted
 
 function showView(name, fromPop) {
   // employees fill in the Workday Check-In before they get into Mantra Sense
-  if (name === "sense" && currentUser && currentUser.role === "employee") {
+  if (name === "sense" && isEmpLike()) {
     if (!checkinDone) name = "checkin";
     else if (ckInfo && !ckInfo.open && !ckNoticeSeen && ckNeedsNotice(ckInfo)) name = "checkin";     // weekend: warning only
     else recheckCheckin();                       // data may have been reset since they answered
@@ -490,6 +384,10 @@ function showView(name, fromPop) {
   if (name === "occhealth" && typeof ohEnter === "function") ohEnter();
   if (name === "network" && typeof nwEnter === "function") nwEnter();
   if (name === "calendar" && typeof calEnter === "function") calEnter();
+  if (name === "wea" && typeof weaEnter === "function") weaEnter();
+  if (name === "weaBuild" && typeof wbEnter === "function") wbEnter();
+  if (name === "weaResults" && typeof wrEnter === "function") wrEnter();
+  if (name === "sense" && typeof weaCardRefresh === "function") weaCardRefresh();
   if (name === "programs" && typeof pgEnter === "function") pgEnter();
   if (name === "counseling" && typeof apEnter === "function") apEnter();
   if (name === "support" && typeof apSupportEnter === "function") apSupportEnter();
@@ -543,7 +441,6 @@ document.querySelectorAll("[data-view]").forEach((a) => {
    PROFILE ICON: pick from the PNGs in the Drive folder, saved to the user's row in the sheet
    ===================================================== */
 const avatarEl = document.getElementById("avatar");
-const iconUrl = (id) => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w256`;
 
 function applyIcon(id) {
   const letter = (avatarEl.dataset.letter || avatarEl.textContent || "M").charAt(0);
@@ -553,8 +450,7 @@ function applyIcon(id) {
   if (id) {
     const img = new Image();
     img.alt = "";
-    img.src = iconUrl(id);
-    img.onerror = () => { avatarEl.classList.remove("has-icon"); avatarEl.textContent = letter; };   // broken link -> default
+    pgLoadIcon(img, id, () => { avatarEl.classList.remove("has-icon"); avatarEl.textContent = letter; });   // not found -> default
     avatarEl.appendChild(img);
   } else {
     avatarEl.textContent = letter;
@@ -586,8 +482,7 @@ function renderIconGrid() {
     if (t.id) {
       const img = new Image();
       img.alt = "";
-      img.loading = "lazy";
-      img.src = iconUrl(t.id);
+      pgLoadIcon(img, t.id);
       b.appendChild(img);
     } else {
       b.classList.add("default");
@@ -618,8 +513,12 @@ async function openIconPicker() {
   if (!iconList) {
     setIconNote("Loading icons…");
     try {
-      const res = await fetch(ICON_API + (ICON_API.includes("?") ? "&" : "?") + "action=icons", { cache: "no-store" });
-      const data = await res.json();
+      let data = iconListP ? await iconListP : null;
+      iconListP = null;                                             // used once; later opens ask again
+      if (!data || !data.ok) {
+        const res = await fetch(ICON_API + (ICON_API.includes("?") ? "&" : "?") + "action=icons", { cache: "no-store" });
+        data = await res.json();
+      }
       if (!data.ok) throw new Error(data.error || "failed");
       iconList = data.icons;
     } catch (err) {
@@ -661,31 +560,82 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !iconMod
 
 /* =====================================================
    ROLES, CHECK-IN, TEAM SIDE BAR, ADMIN
-   Account roles come from column D of the accounts sheet: Admin / HR / Employee (blank = Employee)
+   Account roles come from column D of the accounts sheet: Admin / HR / TL / Employee (blank = Employee)
    ===================================================== */
 function normalizeRole(text) {
   const t = String(text || "").trim().toLowerCase();
   if (t.startsWith("admin")) return "admin";
   if (t === "hr") return "hr";
+  if (t === "tl") return "tl";
   return "employee";
 }
 const isStaff = () => currentUser && (currentUser.role === "admin" || currentUser.role === "hr");
+const isEmpLike = () => currentUser && (currentUser.role === "employee" || currentUser.role === "tl");     // does the check-in, sends concerns
 
 // one call to the Apps Script backend (always sends the user's login so the backend can check it)
 async function api(action, payload = {}) {
   if (!ICON_API) throw new Error("not-connected");
+  if (bootP && BOOT_ACTIONS.has(action)) await bootP;
+  const kept = BOOT[action];
+  if (kept) {
+    delete BOOT[action];
+    if (Date.now() - kept.t < 30000 && (action !== "ckOpen" || payload.advance === true) && (action !== "notifs" || Math.abs((payload.since || 0) - kept.since) < 60000)) return kept.d;
+  }
+  const t0 = performance.now();
   const res = await fetch(ICON_API, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },       // plain text avoids a CORS preflight
     body: JSON.stringify({ action, username: currentUser.username, password: currentUser.password, ...payload }),
   });
   const data = await res.json();
+  try {                                                     // speed log: type mantraSpeed() in the browser console
+    const total = Math.round(performance.now() - t0), inside = Number(data.ms) || 0;
+    (window.__speed = window.__speed || []).push({ action, total, script: inside, google: Math.max(0, total - inside) });
+    if (window.__speed.length > 200) window.__speed.shift();
+  } catch (e) {}
   if (!data.ok) throw new Error(data.error || "failed");
   // the newer actions need the newer script; an old deployment would say "ok" without saving anything
   if (action !== "icon" && data.v !== BACKEND_VERSION) throw new Error("outdated");
+  if (SWR_READS.has(action)) {
+    const key = action + JSON.stringify(payload || {});
+    SWR.set(key, { t: Date.now(), d: data });
+    if (SWR_KEEP.has(action)) { try { const txt = JSON.stringify({ t: Date.now(), d: data }); if (txt.length < 200000) localStorage.setItem("msw_" + key, txt); } catch (e) {} }
+    if (action === "pList") { try { (data.progs || []).forEach((p) => { if (p.icon) pgIconData(p.icon).catch(() => {}); }); } catch (e) {} }      // program pictures start loading as soon as the list is here
+  }
+  else if (!READ_ONLY_CALLS.has(action)) SWR.clear();
   return data;
 }
-const BACKEND_VERSION = 27;
+const BACKEND_VERSION = 35;
+// Lists the website has already fetched are kept for a short while, so opening a page shows them straight away
+// while the fresh copy loads in the background. Anything that writes clears them, so nothing old can show after a change.
+// right after login the site asks for several things; they come in one request and are handed out as each is asked for
+const BOOT = {}; let bootP = null;
+const BOOT_ACTIONS = new Set(["sync", "ckOpen", "notifs", "recipients", "cList"]);
+function bootStart() {
+  const key = "mantraNotifSeen:" + currentUser.username.toLowerCase();
+  let since = 0;
+  try { since = Number(localStorage.getItem(key)) || 0; } catch (e) {}
+  if (!since) since = Date.now() - (isStaff() ? 1 : 7) * 24 * 3600 * 1000;
+  bootP = api("boot", { advance: true, since }).then((d) => {
+    const t = Date.now();
+    BOOT_ACTIONS.forEach((a) => { if (d[a]) BOOT[a] = { t, d: d[a], since }; });
+  }).catch(() => {}).finally(() => { bootP = null; });
+}
+const READ_ONLY_CALLS = new Set(["boot", "pIconBatch", "cList", "cPulse", "recipients", "notifs", "thread", "gAdmin", "libFile", "libCover", "pIcons", "pIcon", "calGet", "weaGet", "usage", "team", "status", "ckOpen"]);
+const SWR = new Map();
+const SWR_READS = new Set(["pList", "aList", "hList", "nList", "libList", "calGet"]);
+// shared information (books, hospitals, the provider network) is also kept on this device, so even the first visit of a new session shows at once
+const SWR_KEEP = new Set(["libList", "hList", "nList"]);
+const SWR_MAX_AGE = 120000;
+function swrPeek(action, payload) {
+  const key = action + JSON.stringify(payload || {});
+  const h = SWR.get(key);
+  if (h && Date.now() - h.t < SWR_MAX_AGE) return h.d;
+  if (SWR_KEEP.has(action)) {
+    try { const k = JSON.parse(localStorage.getItem("msw_" + key) || "null"); if (k && Date.now() - k.t < 7 * 86400000) return k.d; } catch (e) {}
+  }
+  return null;
+}
 
 const adminLink = document.getElementById("adminLink");
 const teamBtn   = document.getElementById("teamBtn");
@@ -698,22 +648,31 @@ function ckLoad(advance) {
   return ckReady;
 }
 
+function prefetchLists() {
+  if (!currentUser) return;
+  // light lists first, one at a time, after the page has settled; the library (slower, it lists Drive) goes last
+  const run = [["pList"], ["calGet", { target: "me" }], ["aList"], ["hList"], ["nList"]].concat(Object.keys(RS_NAMES).map((k) => ["libList", { cat: k }]));
+  let i = 0;
+  const next = () => { if (!currentUser || i >= run.length) return; const [a, p] = run[i++]; api(a, p || {}).catch(() => {}).finally(() => setTimeout(next, 500)); };
+  next();
+}
 function setupRole() {
   adminLink.hidden = currentUser.role !== "admin";
-  teamBtn.hidden = !isStaff();
+  teamBtn.hidden = !(isStaff() || currentUser.group);                // employees and TLs see their own group
   $("gdAdminTab").hidden = currentUser.role !== "admin";
   $("gdStyle").hidden = currentUser.role !== "admin";
   $("gdFabStyle").hidden = currentUser.role !== "admin";
   document.getElementById("tdClear").hidden = currentUser.role !== "admin";      // only Admin can reset messages
-  if (currentUser.role !== "employee") ckLoad(true);                  // a login = a new day while testing (the garden uses it too)
-  if (currentUser.role === "employee") {
+  if (!isEmpLike()) ckLoad(true);                  // a login = a new day while testing (the garden uses it too)
+  if (isEmpLike()) {
     api("sync").catch(() => {});                                        // puts their name on their row in the check-in sheet
     ckLoad(true);                                                      // a login = a new day while testing
     setInterval(recheckCheckin, 60000);                                 // notice an Admin reset while they are logged in
   }
+  setTimeout(prefetchLists, 7000);                                      // the pages people open next are fetched quietly now
   pollNotifications();                                                  // messages for employees, alerts for HR / Admin
   setInterval(() => { if (!document.hidden) pollNotifications(); }, 10000);   // new messages and concerns show up within seconds
-  if (currentUser.role === "employee") api("recipients").then((d) => { trHR = d.people || []; }).catch(() => {});     // warm up the tracker
+  if (isEmpLike()) api("recipients").then((d) => { trHR = d.people || []; }).catch(() => {});     // warm up the tracker
   trLoad();
 }
 
@@ -751,7 +710,7 @@ function resetSurvey() {
 
 // an Admin reset clears the sheet: employees must answer again
 async function recheckCheckin() {
-  if (!currentUser || currentUser.role !== "employee" || !checkinDone) return;
+  if (!currentUser || !isEmpLike() || !checkinDone) return;
   if ((await checkinStatus()) === false) {
     checkinDone = false;
     ckNoticeSeen = false;
@@ -859,7 +818,7 @@ function avatarFor(p) {
   if (p.icon) {
     const img = new Image();
     img.alt = "";
-    img.src = iconUrl(p.icon);
+    pgLoadIcon(img, p.icon);
     img.onload = () => { av.textContent = ""; av.appendChild(img); };
   }
   return av;
@@ -880,9 +839,14 @@ function avatarWithAlert(p) {
 }
 
 let team = [];
+let teamGroups = [];                    // HR / Admin: [{ id, name, tl, tlName }]
+let teamMine = null;                    // employee / TL: their own group { id, name, tl, tlName }
+const teamOpen = new Set();             // group ids that are dropped down
 async function loadTeam() {
   const data = await api("team");
   team = data.people || [];
+  teamGroups = data.groups || [];
+  teamMine = data.group || null;
   renderTeam();
   return team;
 }
@@ -901,18 +865,18 @@ function renderTeam() {
   tpSub.textContent = summary;
   admCount.textContent = summary;
 
-  // side bar list: click an employee to open their details
+  // side bar list: HR / Admin see each group (TL + group name) that drops down to its members; a TL opens a member; an employee only looks
   tpList.textContent = "";
-  team.forEach((p) => {
+  const canOpen = isStaff() || currentUser.role === "tl";
+  const addPerson = (p, into) => {
     const li = document.createElement("li");
-    li.tabIndex = 0;
-    li.setAttribute("role", "button");
-    li.setAttribute("aria-label", "Open " + p.name);
+    li.className = "tp-person";
     const who = document.createElement("div");
     who.className = "tp-who";
     const name = document.createElement("span");
     name.className = "tp-name";
     name.textContent = p.name;
+    if (p.role === "tl") { const t = document.createElement("span"); t.className = "tag-tl"; t.textContent = "TL"; name.appendChild(t); }
     if (p.awaiting) {
       const t = document.createElement("span");
       t.className = "tag-reply";
@@ -921,11 +885,65 @@ function renderTeam() {
     }
     who.append(avatarWithAlert(p), name);
     li.append(who, chip(p.wl, WL_LABELS), chip(p.rc, RC_LABELS));
-    li.addEventListener("click", () => openTeamDetail(p.username));
-    li.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openTeamDetail(p.username); } });
-    tpList.appendChild(li);
-  });
-  tpEmpty.textContent = team.length ? "" : "No employees found.";
+    if (canOpen) {
+      li.tabIndex = 0;
+      li.setAttribute("role", "button");
+      li.setAttribute("aria-label", "Open " + p.name);
+      li.addEventListener("click", () => openTeamDetail(p.username));
+      li.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openTeamDetail(p.username); } });
+    } else li.classList.add("view-only");
+    into.appendChild(li);
+  };
+  if (isStaff() && teamGroups.length) {
+    const buckets = teamGroups.map((g) => ({ g, list: team.filter((p) => p.group === g.id) }));
+    const loose = team.filter((p) => !p.group);
+    if (loose.length) buckets.push({ g: { id: "", name: "", tl: "", tlName: "" }, list: loose });
+    buckets.forEach(({ g, list }) => {
+      const open = teamOpen.has(g.id);
+      const head = document.createElement("li");
+      head.className = "tp-group" + (open ? " open" : "");
+      head.tabIndex = 0;
+      head.setAttribute("role", "button");
+      head.setAttribute("aria-expanded", String(open));
+      const toggle = () => { if (teamOpen.has(g.id)) teamOpen.delete(g.id); else teamOpen.add(g.id); renderTeam(); };
+      const info = document.createElement("div");
+      info.className = "tp-ginfo";
+      const title = document.createElement("b");
+      title.textContent = g.id ? (g.name || "Group " + g.id) : "No group yet";
+      const sub = document.createElement("small");
+      const flagged = list.filter((p) => p.fl === "Concern").length;
+      sub.textContent = (g.id ? (g.tlName ? "TL " + g.tlName : "No TL yet") + " \u00b7 " : "") + list.length + (list.length === 1 ? " person" : " people") + (flagged ? " \u00b7 " + flagged + " with a concern" : "");
+      info.append(title, sub);
+      const chev = document.createElement("span");
+      chev.className = "tp-chev";
+      chev.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      head.append(info);
+      if (g.id) {
+        const ed = document.createElement("button");
+        ed.type = "button"; ed.className = "tp-gedit"; ed.title = "Set the group name"; ed.setAttribute("aria-label", "Set the name of group " + g.id);
+        ed.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        ed.addEventListener("click", (e) => { e.stopPropagation(); startGroupEdit(head, g); });
+        head.append(ed);
+      }
+      head.append(chev);
+      if (flagged && !open) { const bang = document.createElement("span"); bang.className = "tp-alert tp-galert"; bang.textContent = "!"; head.appendChild(bang); }
+      head.addEventListener("click", toggle);
+      head.addEventListener("keydown", (e) => { if (e.target === head && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); toggle(); } });
+      tpList.appendChild(head);
+      if (open) list.forEach((p) => addPerson(p, tpList));
+    });
+    tpEmpty.textContent = team.length ? "" : "No employees found.";
+    tpSub.textContent = summary;
+  } else {
+    team.forEach((p) => addPerson(p, tpList));
+    if (teamMine && teamMine.id) {
+      tpSub.textContent = (teamMine.name || "Group " + teamMine.id) + (teamMine.tlName ? " \u00b7 TL " + teamMine.tlName : "");
+      tpEmpty.textContent = team.length ? "" : "No one else is in your group yet.";
+    } else if (!isStaff()) {
+      tpSub.textContent = "Your group";
+      tpEmpty.textContent = "You are not in a group yet.";
+    } else tpEmpty.textContent = team.length ? "" : "No employees found.";
+  }
 
   // admin page
   admRows.textContent = "";
@@ -960,6 +978,36 @@ function renderTeam() {
   });
 
   if (detailUser) renderDetail();
+}
+
+// HR / Admin: type a new name for a group right inside its row
+function startGroupEdit(head, g) {
+  head.classList.add("editing");
+  head.textContent = "";
+  const box = document.createElement("div");
+  box.className = "tp-gform";
+  const inp = document.createElement("input");
+  inp.type = "text"; inp.maxLength = 40; inp.value = g.name || ""; inp.placeholder = "Group " + g.id + " name";
+  inp.setAttribute("aria-label", "Name of group " + g.id);
+  const ok = document.createElement("button"); ok.type = "button"; ok.className = "tp-gsave"; ok.textContent = "Save";
+  const no = document.createElement("button"); no.type = "button"; no.className = "tp-gcancel"; no.textContent = "Cancel";
+  box.append(inp, ok, no);
+  head.appendChild(box);
+  head.setAttribute("role", "group");
+  head.onclick = null;
+  ["click", "keydown"].forEach((ev) => box.addEventListener(ev, (e) => e.stopPropagation()));
+  const done = () => renderTeam();
+  const save = async () => {
+    const name = inp.value.replace(/\s+/g, " ").trim();
+    ok.disabled = true;
+    try { await api("groupSet", { group: g.id, name }); g.name = name; pgToast(name ? "Group " + g.id + " is now " + name : "Group name cleared"); }
+    catch (err) { pgToast("Couldn't save the group name"); }
+    renderTeam();
+  };
+  ok.addEventListener("click", save);
+  no.addEventListener("click", done);
+  inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); save(); } else if (e.key === "Escape") { e.stopPropagation(); done(); } });
+  inp.focus(); inp.select();
 }
 
 async function refreshTeam() {
@@ -1220,11 +1268,13 @@ document.querySelectorAll("[data-view=admin]").forEach((a) => a.addEventListener
 function openNotification(n) {
   if (!currentUser || !n.thread) return;
   if (n.kind === "garden") { showView("garden"); return; }
+  if (n.kind === "assessment") { showView(isStaff() ? "weaChoose" : "wea"); return; }
   if (n.kind === "program") { showView("programs"); return; }
   if (n.kind === "resources") { showView("resources"); return; }
   if (n.kind === "appointment") { apKind = String(n.thread).indexOf("a:o:") === 0 ? "other" : "counseling"; showView("counseling"); return; }
   if (n.kind === "concern") { trPendingOpen = String(n.thread).replace(/^c:/, ""); showView("tracker"); return; }
-  if (currentUser.role === "employee") openMessages();
+  if (String(n.thread).indexOf("t:") === 0) { viewEmployee(String(n.thread).slice(2)); return; }      // a member wrote to their TL
+  if (isEmpLike()) openMessages(/~tl$/.test(String(n.thread)) ? "tl" : "");
   else viewEmployee(n.thread);
 }
 
@@ -1238,7 +1288,7 @@ async function pollNotifications() {
     const data = await api("notifs", { since });
     (data.items || []).forEach((n) => addNotification({ title: n.title, text: n.text, key: "srv" + n.id, kind: n.kind, thread: n.thread }));
     try { localStorage.setItem(key, String(data.latest || since)); } catch (e) {}
-    if (currentUser.role === "employee" && (data.items || []).length && !msgModal.hidden) loadEmpThread();
+    if (isEmpLike() && (data.items || []).length && !msgModal.hidden) loadEmpThread();
     if ((data.items || []).some((n) => n.kind === "garden")) gdGotItems();
   } catch (err) {
     console.warn("Notifications could not be loaded:", err.message);
@@ -1253,16 +1303,29 @@ const mmNote = document.getElementById("mmNote");
 const mmSend = document.getElementById("mmSend");
 function setMmNote(text, bad) { mmNote.textContent = text || ""; mmNote.classList.toggle("bad", !!bad); }
 
+let mmTo = "";                                  // "" = HR / Admin, "tl" = my group's TL
+function mmShowTo() {
+  const tl = (trHR || []).find((p) => p.tl);
+  const box = $("mmTo");
+  box.hidden = !tl;
+  if (!tl) mmTo = "";
+  $("mmToTl").textContent = "My TL" + (tl ? " (" + tl.name.split(/\s+/)[0] + ")" : "");
+  box.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.to === mmTo));
+  $("mmSub").textContent = mmTo === "tl" ? "Your conversation with your TL" : "Your conversation with HR / Admin";
+}
 async function loadEmpThread(silent) {
   try {
-    const d = await api("thread");
+    const d = await api("thread", { to: mmTo });
     const sig = d.messages.map((m) => m.id).join(",");
     if (!(silent && mmThread.dataset.sig === sig)) { renderThread(mmThread, d.messages, "employee"); mmThread.dataset.sig = sig; }
   } catch (err) {
     if (!silent) setMmNote("Couldn't load your messages.", true);
   }
 }
-async function openMessages() {
+async function openMessages(to) {
+  if (!trHR) { try { trHR = (await api("recipients")).people || []; } catch (e) { trHR = []; } }
+  mmTo = to === "tl" ? "tl" : "";
+  mmShowTo();
   mmText.value = "";
   setMmNote("");
   mmThread.textContent = "";
@@ -1279,8 +1342,8 @@ async function sendReply() {
   mmText.value = "";
   setMmNote("");
   try {
-    await api("reply", { text });
-    setMmNote("Sent. HR / Admin can see your reply.");
+    await api("reply", { text, to: mmTo });
+    setMmNote(mmTo === "tl" ? "Sent. Your TL can see your message." : "Sent. HR / Admin can see your reply.");
     loadEmpThread();
   } catch (err) {
     bub.remove();
@@ -1289,6 +1352,10 @@ async function sendReply() {
   }
 }
 mmSend.addEventListener("click", sendReply);
+document.getElementById("mmTo").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b || b.dataset.to === mmTo) return;
+  mmTo = b.dataset.to; mmThread.dataset.sig = ""; mmThread.textContent = ""; setMmNote(""); mmShowTo(); loadEmpThread();
+});
 document.getElementById("mmClose").addEventListener("click", closeMessages);
 msgModal.addEventListener("click", (e) => { if (e.target === msgModal) closeMessages(); });
 mmText.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendReply(); } });
@@ -1314,8 +1381,12 @@ const trSel = { to: [], cc: [], bcc: [] };
 
 function trNote(text, bad) { const m = $("trMsg"); m.textContent = text || ""; m.classList.toggle("bad", !!bad); }
 const trWhen = (ts) => { const d = new Date(ts); return d.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" }) + ", " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); };
-const trOpenOnes = () => trItems.filter((c) => c.status !== "Closed");
-const trIsEmp = () => currentUser && currentUser.role === "employee";
+const trIsEmp = () => currentUser && (currentUser.role === "employee" || currentUser.role === "tl");     // sends their own concerns
+const trIsTL = () => currentUser && currentUser.role === "tl";
+const trMe = () => (currentUser ? currentUser.username.toLowerCase() : "");
+const trOwn = (c) => !trIsTL() || c.employee === trMe();                 // a TL's list also holds the concerns their members sent them
+const trMemberTab = () => trIsTL() && (trTab === "member" || trTab === "mhistory");
+const trOpenOnes = () => trItems.filter((c) => c.status !== "Closed" && trOwn(c));
 
 // keeps only simple formatting from the editor (no scripts, no odd attributes)
 const TR_SKIP = new Set(["SCRIPT", "STYLE", "IFRAME", "OBJECT", "EMBED", "TEXTAREA", "SVG", "NOSCRIPT"]);
@@ -1353,7 +1424,7 @@ function trRenderRecipients() {
     trSel[f].forEach((p) => {
       const c = document.createElement("span");
       c.className = "tr-chip";
-      c.textContent = p.name;
+      c.textContent = p.name + (p.tl ? " (TL)" : "");
       const x = document.createElement("button");
       x.type = "button"; x.textContent = "\u00d7"; x.setAttribute("aria-label", "Remove " + p.name);
       x.addEventListener("click", () => { trSel[f] = trSel[f].filter((q) => q.username !== p.username); trRenderRecipients(); });
@@ -1373,7 +1444,7 @@ function trRenderRecipients() {
     }
     free.forEach((p) => {
       const b = document.createElement("button");
-      b.type = "button"; b.textContent = p.name;
+      b.type = "button"; b.textContent = p.name + (p.tl ? " (my TL)" : "");
       b.addEventListener("click", () => { trSel[f].push(p); menu.hidden = true; trRenderRecipients(); });
       menu.appendChild(b);
     });
@@ -1464,8 +1535,10 @@ $("trSend").addEventListener("click", async () => {
       subject, body, category: pick("trCategory"), priority: pick("trPriority"),
       support: [...document.querySelectorAll("#trSupport input:checked")].map((c) => c.value),
     });
+    const names = [...new Set([...trSel.to, ...trSel.cc, ...trSel.bcc].map((p) => p.name))];       // read before the form is cleared
     trResetForm();
-    trNote("Your concern was sent. HR has been notified.");
+    const list = names.length > 1 ? names.slice(0, -1).join(", ") + " and " + names[names.length - 1] : names[0] || "HR";
+    trNote("Your concern was sent. " + list + (names.length > 1 ? " have" : " has") + " been notified.");
     if (sent.item) { trApply(sent.item); trLoaded = true; } else await trLoad();
     trTab = "current";
     trRender();
@@ -1490,6 +1563,11 @@ async function trLoad() {
 }
 
 function trTabsFor() {
+  if (trIsTL()) {
+    const mem = trItems.filter((c) => !trOwn(c)), memOpen = mem.filter((c) => c.status !== "Closed").length;
+    return [{ k: "current", t: "My Concern" }, { k: "history", t: "History (" + trItems.filter((c) => c.status === "Closed" && trOwn(c)).length + ")" },
+      { k: "member", t: "Member Concerns (" + memOpen + ")" }, { k: "mhistory", t: "Member History (" + (mem.length - memOpen) + ")" }];
+  }
   if (trIsEmp()) return [{ k: "current", t: "My Concern" }, { k: "history", t: "History (" + trItems.filter((c) => c.status === "Closed").length + ")" }];
   const open = trOpenOnes().length;
   return [{ k: "open", t: "Open (" + open + ")" }, { k: "history", t: "History (" + (trItems.length - open) + ")" }];
@@ -1508,7 +1586,7 @@ function trRender() {
     tabs.appendChild(b);
   });
   $("trForm").hidden = true; $("trList").hidden = true; $("trDetail").hidden = true;
-  $("tracker").classList.toggle("tr-staff", !trIsEmp());
+  $("tracker").classList.toggle("tr-staff", !trIsEmp() || trMemberTab());
   trRenderStats();
 
   if (trIsEmp() && trTab === "current") {
@@ -1517,7 +1595,9 @@ function trRender() {
     else { $("trForm").hidden = false; trRenderRecipients(); }
     return;
   }
-  const rows = trTab === "history" ? trItems.filter((c) => c.status === "Closed") : trOpenOnes();
+  let rows;
+  if (trMemberTab()) rows = trItems.filter((c) => !trOwn(c) && (trTab === "mhistory") === (c.status === "Closed"));
+  else rows = trTab === "history" ? trItems.filter((c) => c.status === "Closed" && trOwn(c)) : trOpenOnes();
   trRenderList(rows);
 }
 
@@ -1551,29 +1631,30 @@ const TR_HUES = ["#e8714f", "#d98a3d", "#8fae6c", "#c0608a", "#7a8fc2", "#b4684a
 const trHue = (name) => { let h = 0; String(name).split("").forEach((ch) => { h = (h * 31 + ch.charCodeAt(0)) >>> 0; }); return TR_HUES[h % TR_HUES.length]; };
 
 function trRenderList(rows) {
+  const emp = trIsEmp() && !trMemberTab();               // employee-style list; a TL looking at member concerns gets the staff-style one (a TL looking at their members' concerns)
   const box = $("trList");
   box.hidden = false;
   box.textContent = "";
-  box.classList.toggle("staff", !trIsEmp());
-  if (!rows.length && !trIsEmp()) {
+  box.classList.toggle("staff", !emp);
+  if (!rows.length && !emp) {
     const e = document.createElement("div");
     e.className = "tr-calm";
     e.innerHTML = '<svg viewBox="0 0 120 110" aria-hidden="true"><circle cx="60" cy="58" r="44" fill="#fbe3d4"/><g class="sw"><path d="M60 100C58 74 60 50 66 24" fill="none" stroke="#9ab27a" stroke-width="2.4" stroke-linecap="round"/><g fill="#a9c18a"><path d="M60 84c-18-3-28-13-30-27 17 1 28 11 30 27Z"/><path d="M61 64c16-3 26-13 27-26-15 1-26 10-27 26Z"/><path d="M63 44c-14-3-22-11-24-23 14 1 22 9 24 23Z"/></g></g><g fill="#f0a98d"><circle class="tw" cx="26" cy="30" r="3"/><circle class="tw d" cx="96" cy="44" r="2.5"/><circle class="tw e" cx="90" cy="86" r="3"/></g></svg><h4></h4><p></p>';
-    e.querySelector("h4").textContent = trTab === "history" ? "Nothing in the history yet" : "All caught up!";
-    e.querySelector("p").textContent = trTab === "history" ? "Closed concerns will show up here." : "No open concerns right now. New ones will appear here the moment an employee sends them.";
+    e.querySelector("h4").textContent = trTab === "history" || trTab === "mhistory" ? "Nothing in the history yet" : "All caught up!";
+    e.querySelector("p").textContent = trTab === "history" || trTab === "mhistory" ? "Closed concerns will show up here." : "No open concerns right now. New ones will appear here the moment an employee sends them.";
     box.appendChild(e);
     return;
   }
   if (!rows.length) {
     const e = document.createElement("p");
     e.className = "adm-empty";
-    e.textContent = trTab === "history" ? "Nothing in the history yet." : trIsEmp() ? "You have no open concern." : "No open concerns right now.";
+    e.textContent = trTab === "history" || trTab === "mhistory" ? "Nothing in the history yet." : emp ? "You have no open concern." : "No open concerns right now.";
     box.appendChild(e);
     return;
   }
   const head = document.createElement("div");
   head.className = "tr-row-item tr-th";
-  head.innerHTML = "<span>" + (trIsEmp() ? "To" : "Employee") + "</span><span>Subject</span><span>Priority</span><span>Status</span><span>Updated</span>";
+  head.innerHTML = "<span>" + (emp ? "To" : "Employee") + "</span><span>Subject</span><span>Priority</span><span>Status</span><span>Updated</span>";
   box.appendChild(head);
   rows.forEach((c) => {
     const b = document.createElement("button");
@@ -1581,7 +1662,7 @@ function trRenderList(rows) {
     b.className = "tr-row-item";
     const who = document.createElement("span");
     who.className = "tr-who";
-    if (trIsEmp()) who.textContent = c.to.map((p) => p.name).join(", ");
+    if (emp) who.textContent = c.to.map((p) => p.name).join(", ");
     else {
       const av = document.createElement("i");
       av.className = "tr-av"; av.textContent = String(c.name || "?").trim().charAt(0).toUpperCase(); av.style.background = trHue(c.name);
@@ -1595,7 +1676,7 @@ function trRenderList(rows) {
     sub.textContent = c.subject;
     const pr = document.createElement("span");
     pr.textContent = c.priority || "–";
-    if (!trIsEmp() && c.priority) { pr.className = "tr-pr pr-" + c.priority.toLowerCase(); pr.prepend(document.createElement("b")); }
+    if (!emp && c.priority) { pr.className = "tr-pr pr-" + c.priority.toLowerCase(); pr.prepend(document.createElement("b")); }
     const st = document.createElement("span");
     st.className = "tr-status st-" + c.status.toLowerCase();
     st.textContent = c.status;
@@ -1614,7 +1695,8 @@ function trPaint(c, messages, canGoBack, silent) {
   $("trDetail").hidden = false;
   $("trBack").hidden = !canGoBack;
   $("trdSubject").textContent = c.subject;
-  $("trdMeta").textContent = (trIsEmp() ? "" : "From " + c.name + " \u00b7 ") + "To " + c.to.map((p) => p.name).join(", ") + " \u00b7 " + trWhen(c.created);
+  const stf = !trIsEmp() || c.employee !== trMe();
+  $("trdMeta").textContent = (!stf ? "" : "From " + c.name + " \u00b7 ") + "To " + c.to.map((p) => p.name).join(", ") + " \u00b7 " + trWhen(c.created);
   const st = $("trdStatus");
   st.textContent = c.status;
   st.className = "tr-status st-" + c.status.toLowerCase();
@@ -1632,12 +1714,12 @@ function trPaint(c, messages, canGoBack, silent) {
   const th = $("trdThread");
   if (messages) {
     const sig = messages.map((m) => m.id).join(",");
-    if (th.dataset.sig !== sig || !silent) { renderThread(th, messages, trIsEmp() ? "employee" : "staff"); th.dataset.sig = sig; }
+    if (th.dataset.sig !== sig || !silent) { renderThread(th, messages, stf ? "staff" : "employee"); th.dataset.sig = sig; }
   } else { th.textContent = ""; th.dataset.sig = ""; const l = document.createElement("p"); l.className = "thread-empty"; l.textContent = "Loading…"; th.appendChild(l); }
   const closed = c.status === "Closed";
   $("trdCompose").hidden = closed;
   if (!silent) $("trdText").value = "";
-  $("trdClose").hidden = trIsEmp() || closed;
+  $("trdClose").hidden = !stf || closed;
   $("trdReset").hidden = !(currentUser && currentUser.role === "admin");
   $("trdNote").textContent = closed ? "Closed" + (c.closedBy ? " by " + c.closedBy : "") + "." : "";
   $("trdNote").classList.remove("bad");
@@ -1696,7 +1778,7 @@ armConfirm($("trdClose"), "Close concern", "Sure? Click again", async () => {
     await api("cClose", { id: trCur.id });
     await trLoad();
     trNote("Concern closed. It is now in the History.");
-    trTab = "history";
+    trTab = trIsTL() ? "mhistory" : "history";
     trRender();
   } catch (err) { $("trdNote").textContent = "Couldn't close the concern."; $("trdNote").classList.add("bad"); }
 });
@@ -1713,8 +1795,9 @@ armConfirm($("trResetAll"), "Reset all concerns", "Click again to reset ALL", as
     const r = await api("cReset", { all: true });
     await trLoad();
     trNote("Deleted " + r.count + " concern" + (r.count === 1 ? "" : "s") + ". Employees can send new ones.");
+    pgToast("Deleted " + r.count + " concern" + (r.count === 1 ? "" : "s"));
     trRender();
-  } catch (err) { trNote("Couldn't reset the concerns.", true); }
+  } catch (err) { trNote("Couldn't reset the concerns.", true); pgToast("Couldn't reset the concerns"); }
 });
 $("trRefresh").addEventListener("click", async () => { trNote(""); await trLoad(); trRender(); });
 
@@ -1724,7 +1807,6 @@ async function trEnter() {
   $("trTitle").textContent = emp ? "Report a Workload Concern" : "Work Intervention Tracker";
   $("trSub").innerHTML = emp ? "Send a message to our HR and Employee Support Team.<br>Your concern will be reviewed and handled with care."
     : "Review concerns from your employees, reply, and close them when they are handled.<br>" + (currentUser.role === "admin" ? "As Admin you can view everything without changing a status." : "Opening a new concern sets it to Ongoing.");
-  $("trResetAll").hidden = currentUser.role !== "admin";
   trNote("");
   if (emp && !trHR) {
     try { trHR = (await api("recipients")).people || []; } catch (e) { trHR = []; }
@@ -1737,7 +1819,7 @@ async function trEnter() {
   if (trPendingOpen) {
     const id = trPendingOpen; trPendingOpen = null;
     const c = trItems.find((x) => x.id === id);
-    if (c) { trTab = emp ? (c.status === "Closed" ? "history" : "current") : (c.status === "Closed" ? "history" : "open"); trRender(); if (!emp || c.status === "Closed") trShow(id, true); return; }
+    if (c) { const mem = trIsTL() && !trOwn(c); trTab = mem ? (c.status === "Closed" ? "mhistory" : "member") : emp ? (c.status === "Closed" ? "history" : "current") : (c.status === "Closed" ? "history" : "open"); trRender(); if (!emp || mem || c.status === "Closed") trShow(id, true); return; }
   }
   trSoftRefresh();
 }
@@ -1766,8 +1848,8 @@ async function rtTick() {
         if (!first || !trLoaded) { if (await trLoad()) trSoftRefresh(); }
       }
     }
-    if (currentUser.role === "employee" && !msgModal.hidden) await loadEmpThread(true);
-    if (isStaff() && teamPanel.classList.contains("detail") && detailUser) await loadStaffThread(true);
+    if (isEmpLike() && !msgModal.hidden) await loadEmpThread(true);
+    if ((isStaff() || currentUser.role === "tl") && teamPanel.classList.contains("detail") && detailUser) await loadStaffThread(true);
   } catch (e) { /* offline or busy: try again next time */ }
   rtBusy = false;
 }
@@ -2236,12 +2318,12 @@ function gdUserRow(p) {
   row.className = "gd-user";
   row.innerHTML = '<div class="top"><span class="av"></span><span class="nm"><b></b><small></small></span><span class="gd-tl"></span></div><div class="gd-bar"><i></i></div><div class="btns"></div>';
   const av = row.querySelector(".av");
-  if (p.icon && typeof iconUrl === "function") { const im = document.createElement("img"); im.alt = ""; im.src = iconUrl(p.icon); av.appendChild(im); } else av.textContent = (p.name || "?").charAt(0).toUpperCase();
+  if (p.icon) { const im = document.createElement("img"); im.alt = ""; pgLoadIcon(im, p.icon); av.appendChild(im); } else av.textContent = (p.name || "?").charAt(0).toUpperCase();
   row.querySelector("b").textContent = p.name;
   let last = null;
   row._set = (q) => {
     const pct = q.level >= 5 ? 100 : Math.round((q.into / q.need) * 100);
-    row.querySelector("small").textContent = (q.role === "hr" ? "HR" : "Employee") + " \u00b7 Level " + q.level + " " + GD_STAGES[q.level].n + " \u00b7 " + q.xp + " XP";
+    row.querySelector("small").textContent = (q.role === "hr" ? "HR" : q.role === "tl" ? "TL" : "Employee") + " \u00b7 Level " + q.level + " " + GD_STAGES[q.level].n + " \u00b7 " + q.xp + " XP";
     row.querySelector(".gd-bar i").style.width = pct + "%";
     row.querySelector(".gd-tl").innerHTML = gdIcon(GD_STAGES[q.level].icon);
     if (last !== null && last !== q.xp) { row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash"); }
@@ -2326,19 +2408,29 @@ function rsMark(k) {
   document.querySelectorAll(".rs-side, .rs-card").forEach((s) => s.classList.toggle("active", s.dataset.rs === k));
 }
 const rsCovers = new Map();       // epub id -> data URL (or "" when the book has no cover)
-let rsCovQ = Promise.resolve();
+const rsCovQ = [], rsCovPend = new Map(); let rsCovRun = 0;
+function rsCovPump() {
+  while (rsCovRun < 3 && rsCovQ.length) {
+    const b = rsCovQ.shift(); rsCovRun++;
+    api("libCover", { id: b.id }).then((r) => {
+      const url = r.ok ? "data:" + r.mime + ";base64," + r.b64 : "";
+      rsCovers.set(b.id, url);
+      try { if (url && url.length < 300000) localStorage.setItem("mcv_" + b.id + "_" + b.size, url); } catch (e) {}
+    }).catch(() => { rsCovers.set(b.id, ""); }).finally(() => { rsCovRun--; (rsCovPend.get(b.id) || []).forEach((fn) => fn()); rsCovPend.delete(b.id); rsCovPump(); });
+  }
+}
 function rsCover(b, cover) {
   const put = (src) => {
     const img = new Image(); img.alt = ""; img.className = "rs-img"; img.referrerPolicy = "no-referrer";
     img.onload = () => cover.classList.add("has-img");
     img.src = src; cover.insertBefore(img, cover.firstChild);
   };
-  if (b.type === "pdf") { put("https://drive.google.com/thumbnail?id=" + b.id + "&sz=w400"); return; }
+  if (b.type === "pdf") return;                       // PDFs show the default cover
   if (rsCovers.has(b.id)) { if (rsCovers.get(b.id)) put(rsCovers.get(b.id)); return; }
-  rsCovQ = rsCovQ.then(() => api("libCover", { id: b.id }).then((r) => {
-    const url = r.ok ? "data:" + r.mime + ";base64," + r.b64 : "";
-    rsCovers.set(b.id, url); if (url && cover.isConnected) put(url);
-  }).catch(() => { rsCovers.set(b.id, ""); }));
+  try { const kept = localStorage.getItem("mcv_" + b.id + "_" + b.size); if (kept) { rsCovers.set(b.id, kept); put(kept); return; } } catch (e) {}     // shown at once on this device
+  const done = () => { const u = rsCovers.get(b.id); if (u && cover.isConnected) put(u); };
+  if (rsCovPend.has(b.id)) { rsCovPend.get(b.id).push(done); return; }
+  rsCovPend.set(b.id, [done]); rsCovQ.push(b); rsCovPump();
 }
 function rsOpen(k) {
   rsCat = k; rsMark(k); rsStopPoll();
@@ -2359,12 +2451,14 @@ function rsRefresh(loud) {
   const k = rsCat; if (k === "all" || rsBusy) return;
   rsBusy = true;
   const btn = $("rsRefresh"); btn.classList.add("spin");
-  api("libList", { cat: k }).then((r) => {
+  const apply = (r) => {
     if (rsCat !== k) return;
     const lib = r.lib, sig = JSON.stringify(lib[k] || []) + (lib[k + "_error"] || "");
     rsLibData = lib;
     if (sig !== rsShown) { rsShown = sig; rsRenderBooks(); }
-  }).catch((e) => {
+  };
+  if (loud) { const kept = swrPeek("libList", { cat: k }); if (kept) apply(kept); }
+  api("libList", { cat: k }).then(apply).catch((e) => {
     if (rsCat !== k || !loud) return;
     const box = $("rsBooks");
     box.innerHTML = '<div class="rs-msg">' + (e.message === "outdated" ? "The script needs the latest update." : "The library could not be loaded.") + '<br><button type="button">Try again</button></div>';
@@ -2410,6 +2504,7 @@ function rsClose() {
   $("rsReader").hidden = true; $("rsRBody").innerHTML = "";
   $("rsRPrev").hidden = $("rsRNext").hidden = true;
   if (rsBook) { try { rsBook.destroy(); } catch (e) {} rsBook = null; }
+  if (rsPdfDoc) { try { rsPdfDoc.destroy(); } catch (e) {} rsPdfDoc = null; }
   rsReaderKey = null; document.removeEventListener("keydown", rsKeys);
 }
 function rsKeys(e) {
@@ -2423,13 +2518,7 @@ async function rsRead(b) {
   $("rsRTitle").textContent = b.name;
   const body = $("rsRBody");
   $("rsReader").hidden = false; document.addEventListener("keydown", rsKeys);
-  if (b.type === "pdf") {
-    const f = document.createElement("iframe");
-    f.src = "https://drive.google.com/file/d/" + b.id + "/preview"; f.setAttribute("allow", "fullscreen");
-    body.appendChild(f);
-    const sh = document.createElement("div"); sh.className = "rs-shield"; body.appendChild(sh);   // covers the viewer's pop-out / open-in-Drive button
-    return;
-  }
+  if (b.type === "pdf") return rsReadPdf(b, key);
   body.innerHTML = '<div class="rs-loading">Opening the book…</div>';
   try {
     const r = await api("libFile", { id: b.id });
@@ -2446,9 +2535,51 @@ async function rsRead(b) {
     $("rsRPrev").hidden = $("rsRNext").hidden = false;
   } catch (e) {
     if (rsReaderKey !== key) return;
-    body.innerHTML = '<div class="rs-loading">' + (e.message === "too-big" ? "This book is too large to open here." : "This book could not be opened here.") + " Use Download above.</div>";
+    body.innerHTML = '<div class="rs-loading">' + (e.message === "too-big" ? "This book is too large to open here." : "This book could not be opened here.") + "</div>";
   }
 }
+// PDFs are fetched through the script (the Drive file stays private) and drawn page by page with PDF.js
+async function rsReadPdf(b, key) {
+  const body = $("rsRBody");
+  body.innerHTML = '<div class="rs-loading">Opening the PDF…</div>';
+  try {
+    const r = await api("libFile", { id: b.id });
+    await rsLoadScript("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js");
+    if (rsReaderKey !== key) return;
+    const lib = window.pdfjsLib;
+    lib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+    const bin = atob(r.b64), buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    const doc = await lib.getDocument({ data: buf }).promise;
+    if (rsReaderKey !== key) { doc.destroy(); return; }
+    const box = document.createElement("div");
+    box.className = "rs-pdf";
+    body.textContent = "";
+    body.appendChild(box);
+    const first = await doc.getPage(1), vp0 = first.getViewport({ scale: 1 });
+    const draw = async (holder, n) => {
+      if (holder.dataset.done) return;
+      holder.dataset.done = "1";
+      const page = await doc.getPage(n);
+      const w = holder.clientWidth || 600, vp = page.getViewport({ scale: (w / page.getViewport({ scale: 1 }).width) * Math.min(2, window.devicePixelRatio || 1) });
+      const cv = document.createElement("canvas");
+      cv.width = vp.width; cv.height = vp.height;
+      await page.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise;
+      holder.textContent = ""; holder.style.aspectRatio = ""; holder.appendChild(cv);
+    };
+    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { io.unobserve(e.target); draw(e.target, Number(e.target.dataset.n)); } }), { root: box, rootMargin: "600px 0px" });
+    for (let n = 1; n <= doc.numPages; n++) {
+      const h = document.createElement("div");
+      h.className = "rs-pg"; h.dataset.n = n; h.style.aspectRatio = vp0.width + " / " + vp0.height;
+      box.appendChild(h); io.observe(h);
+    }
+    rsPdfDoc = doc;
+  } catch (e) {
+    if (rsReaderKey !== key) return;
+    body.innerHTML = '<div class="rs-loading">' + (e.message === "too-big" ? "This PDF is too large to open here." : "This PDF could not be opened here.") + "</div>";
+  }
+}
+let rsPdfDoc = null;
 $("rsRClose").addEventListener("click", rsClose);
 $("rsRPrev").addEventListener("click", () => rsBook && rsBook.rendition.prev());
 $("rsRNext").addEventListener("click", () => rsBook && rsBook.rendition.next());
@@ -2461,15 +2592,27 @@ let pgProgs = [], pgTab = "upcoming", pgAll = false, pgPoll = null, pgIcons = nu
 const pgIconCache = new Map(), pgIconQ = []; let pgIconRun = 0;
 function pgIconData(id) {
   if (pgIconCache.has(id)) return pgIconCache.get(id);
-  const p = new Promise((res, rej) => { pgIconQ.push({ id, res, rej }); pgIconPump(); });
+  try { const kept = localStorage.getItem("mi_" + id); if (kept) { const q = Promise.resolve(kept); pgIconCache.set(id, q); return q; } } catch (e) {}      // pictures already fetched on this device
+  const p = new Promise((res, rej) => { pgIconQ.push({ id, res, rej, tries: 0 }); setTimeout(pgIconPump, 25); });     // a short wait lets many icons ride in one request
   pgIconCache.set(id, p);
   p.catch(() => pgIconCache.delete(id));
   return p;
 }
 function pgIconPump() {
   while (pgIconRun < 3 && pgIconQ.length) {
-    const t = pgIconQ.shift(); pgIconRun++;
-    api("pIcon", { id: t.id }).then((r) => t.res("data:" + r.mime + ";base64," + r.b64), t.rej).finally(() => { pgIconRun--; pgIconPump(); });
+    const batch = pgIconQ.splice(0, 4); pgIconRun++;
+    api("pIconBatch", { ids: batch.map((t) => t.id) }).then((r) => {
+      batch.forEach((t) => {
+        const x = r.icons && r.icons[t.id];
+        if (x) {
+          const u = "data:" + x.mime + ";base64," + x.b64;
+          try { if (u.length < 300000) localStorage.setItem("mi_" + t.id, u); } catch (e) {}
+          t.res(u);
+        } else if (++t.tries < 5) setTimeout(() => { pgIconQ.push(t); pgIconPump(); }, 1200 * t.tries);     // one that did not arrive is asked for again
+        else t.rej(new Error("icon"));
+      });
+    }, (e) => batch.forEach((t) => { if (++t.tries < 5) setTimeout(() => { pgIconQ.push(t); pgIconPump(); }, 1200 * t.tries); else t.rej(e); }))
+      .finally(() => { pgIconRun--; pgIconPump(); });
   }
 }
 function pgLoadIcon(img, id, onFail) {
@@ -2496,7 +2639,6 @@ function pgIconEl(p) {
 function pgEnter() {
   pgTab = "upcoming"; pgAll = false;
   $("pgNew").hidden = pgRole() !== "hr";
-  $("pgResetAll").hidden = pgRole() !== "admin";
   document.querySelectorAll(".pg-tab[data-pg]").forEach((b) => b.classList.toggle("active", b.dataset.pg === pgTab));
   pgProgs = [];
   $("pgGrid").innerHTML = '<div class="pg-empty">Loading programs…</div>';
@@ -2507,10 +2649,12 @@ function pgEnter() {
   }, 20000);
 }
 function pgRefresh(loud) {
-  return api("pList").then((r) => {
+  const apply = (r) => {
     const sig = JSON.stringify(r.progs);
     if (sig !== pgRefresh.sig) { pgRefresh.sig = sig; pgProgs = r.progs; pgRender(); }
-  }).catch((e) => {
+  };
+  if (loud) { const kept = swrPeek("pList"); if (kept) apply(kept); }
+  return api("pList").then(apply).catch((e) => {
     if (!loud) return;
     $("pgGrid").innerHTML = '<div class="pg-empty"></div>';
     $("pgGrid").firstChild.textContent = e.message === "outdated" ? "The script needs the latest update." : "Programs could not be loaded.";
@@ -2533,7 +2677,7 @@ function pgRender() {
     card.appendChild(pgIconEl(p));
     const t = document.createElement("div"); t.className = "pg-ctitle"; t.textContent = p.title; card.appendChild(t);
     const d = document.createElement("div"); d.className = "pg-cdate"; d.textContent = pgFmt(p.start); card.appendChild(d);
-    if (pgRole() !== "employee" && past && !p.closed) { const g = document.createElement("span"); g.className = "pg-tag"; g.textContent = "Ended - not closed yet"; card.appendChild(g); }
+    if (!isEmpLike() && past && !p.closed) { const g = document.createElement("span"); g.className = "pg-tag"; g.textContent = "Ended - not closed yet"; card.appendChild(g); }
     const b = document.createElement("button"); b.type = "button"; b.className = "pg-go";
     const canJoin = pgRole() !== "admin" && !past;
     if (canJoin && !p.joined) { b.innerHTML = "<span>Save my spot</span><b>&rarr;</b>"; b.addEventListener("click", (e) => { e.stopPropagation(); pgJoin(p, false, b); }); }
@@ -2547,17 +2691,30 @@ function pgRender() {
 }
 async function pgJoin(p, leave, btn) {
   if (btn) btn.disabled = true;
-  try {
-    const r = await api("pJoin", { id: p.id, leave: !!leave });
-    const i = pgProgs.findIndex((x) => x.id === p.id);
-    if (i >= 0) pgProgs[i] = { ...pgProgs[i], ...r.prog };
+  const i = pgProgs.findIndex((x) => x.id === p.id);
+  const snap = i >= 0 ? JSON.parse(JSON.stringify(pgProgs[i])) : null;
+  const me = currentUser.username.toLowerCase();
+  if (i >= 0) {                                              // the change shows right away; the server confirms it a moment later
+    const cur = pgProgs[i];
+    const next = { ...cur, joined: !leave, count: Math.max(0, (cur.count || 0) + (leave ? -1 : 1)) };
+    if (cur.people) next.people = leave ? cur.people.filter((x) => String(x.username).toLowerCase() !== me) : cur.people.concat([{ username: currentUser.username, name: currentUser.name, role: currentUser.role, rewarded: false }]);
+    pgProgs[i] = next;
     pgRefresh.sig = JSON.stringify(pgProgs);
     pgRender();
     if (!$("pgDetail").hidden) pgDetail(p.id);
-    pgToast(leave ? "You left the program." : "Your spot is saved!");
+  }
+  pgToast(leave ? "You left the program." : "Your spot is saved!");
+  try {
+    const r = await api("pJoin", { id: p.id, leave: !!leave });
+    const k = pgProgs.findIndex((x) => x.id === p.id);
+    if (k >= 0) pgProgs[k] = { ...pgProgs[k], ...r.prog };
+    pgRefresh.sig = JSON.stringify(pgProgs);
+    pgRender();
+    if (!$("pgDetail").hidden) pgDetail(p.id);
     if (!leave) addNotification({ title: "You joined a program", text: "You joined " + p.title + " on " + pgFmt(p.start) + ".", kind: "program", thread: "p:" + p.id });
   } catch (e) {
-    pgToast(e.message === "outdated" ? "The script needs the latest update." : e.message);
+    if (snap) { const k = pgProgs.findIndex((x) => x.id === p.id); if (k >= 0) pgProgs[k] = snap; pgRefresh.sig = JSON.stringify(pgProgs); pgRender(); if (!$("pgDetail").hidden) pgDetail(p.id); }
+    pgToast(e.message === "outdated" ? "The script needs the latest update." : "Couldn't save your spot. Please try again.");
     if (btn) btn.disabled = false;
     pgRefresh(false);
   }
@@ -2601,7 +2758,7 @@ function pgDetail(id) {
     armConfirm(mk("pg-warn", "Delete"), "Delete", "Sure?", async () => { try { await api("pDelete", { id: p.id }); pgModal("pgDetail", false); pgRefresh.sig = ""; await pgRefresh(true); pgToast("Program deleted."); } catch (e) { pgToast(e.message); } });
     mk("pg-ghost", "Edit").addEventListener("click", () => pgOpenForm(p));
   }
-  if (role !== "employee" && !p.closed) {
+  if (!isEmpLike() && !p.closed) {
     armConfirm(mk("pg-warn", "Close program"), "Close program", "Close and give rewards?", async () => {
       try { const r = await api("pClose", { id: p.id }); pgModal("pgDetail", false); pgRefresh.sig = ""; await pgRefresh(true); pgToast(r.given ? "Program closed. Rewards sent to " + r.given + (r.given === 1 ? " person." : " people.") : "Program closed."); } catch (e) { pgToast(e.message); }
     });
@@ -2698,7 +2855,6 @@ function apEnter() {
   const other = apKind === "other";
   $("counseling").dataset.kind = other ? "other" : "counseling";
   $("apTitle").textContent = $("apSideTitle").textContent = other ? "Other Services" : "Counseling & Therapy";
-  $("apResetAll").hidden = pgRole() !== "admin";
   $("apLead").textContent = apStaff() ? "Review requests, reply with the appointment details, and close them when done." : other ? "Tell us what kind of help you need. Someone from HR will review it and reply with the details." : "Share what is on your mind. Someone from HR will review it and reply with your appointment.";
   apTabs(); $("apBody").innerHTML = '<div class="pg-empty">Loading…</div>';
   apRefresh(true);
@@ -2717,10 +2873,12 @@ function apTabs() {
   });
 }
 function apRefresh(loud) {
-  return api("aList").then((r) => {
+  const apply = (r) => {
     const sig = JSON.stringify(r.list);
     if (sig !== apSig) { apSig = sig; apAll = r.list; apRender(); }
-  }).catch((e) => {
+  };
+  if (loud) { const kept = swrPeek("aList"); if (kept) apply(kept); }
+  return api("aList").then(apply).catch((e) => {
     if (!loud) return;
     $("apBody").innerHTML = '<div class="pg-empty"></div>';
     $("apBody").firstChild.textContent = e.message === "outdated" ? "The script needs the latest update." : "Appointments could not be loaded.";
@@ -3002,7 +3160,12 @@ function nwItem(item, openId, onToggle, staffActs) {
 }
 
 /* ----- Occupational Health ----- */
-async function ohEnter() { $("ohResetAll").hidden = pgRole() !== "admin"; ohOpenId = ""; $("ohBody").innerHTML = '<div class="nw-note">Loading…</div>'; await ohRefresh(); }
+async function ohEnter() {
+  ohOpenId = "";
+  const kept = swrPeek("hList");
+  if (kept) { ohList = kept.hospitals || []; ohRender(); } else $("ohBody").innerHTML = '<div class="nw-note">Loading…</div>';
+  await ohRefresh();
+}
 async function ohRefresh() {
   try { const r = await api("hList"); ohList = r.hospitals || []; ohRender(); } catch (e) { nwError($("ohBody"), e); }
 }
@@ -3026,7 +3189,12 @@ function ohRender() {
 }
 
 /* ----- Our Provider Network ----- */
-async function nwEnter() { $("nwResetAll").hidden = pgRole() !== "admin"; nwCur = null; nwOpenId = ""; $("nwBody").innerHTML = '<div class="nw-note">Loading…</div>'; await nwRefresh(); }
+async function nwEnter() {
+  nwCur = null; nwOpenId = "";
+  const kept = swrPeek("nList");
+  if (kept) { nwCats = kept.cats || []; nwRender(); } else $("nwBody").innerHTML = '<div class="nw-note">Loading…</div>';
+  await nwRefresh();
+}
 async function nwRefresh() {
   try { const r = await api("nList"); nwCats = r.cats || []; if (nwCur && !nwCats.some((c) => c.id === nwCur)) nwCur = null; nwRender(); } catch (e) { nwError($("nwBody"), e); }
 }
@@ -3127,26 +3295,33 @@ const calTime24 = (t) => { const m = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(t || 
 const calS = { y: 0, m: 0, mode: "me", target: "home", brush: "", data: null, byDate: {}, editing: null, day: "", want: "me" };
 
 function calStaff() { return pgRole() === "hr" || pgRole() === "admin"; }
+const calTL = () => pgRole() === "tl";                  // a TL can look at (not change) their members' calendars
 function calEnter() {
-  const staff = calStaff();
+  const staff = calStaff() || calTL();
   calS.mode = staff && calS.want === "employees" ? "employees" : "me";
   const now = new Date(); calS.y = now.getFullYear(); calS.m = now.getMonth();
-  calS.brush = ""; calS.target = "home";
+  calS.brush = ""; calS.target = calTL() ? "" : "home";
+  $("calHomeBtn").hidden = calTL();
   $("calEmp").hidden = calS.mode !== "employees";
-  $("calResetMe").hidden = !(pgRole() === "admin" && calS.mode === "me");
-  $("calResetEmp").hidden = $("calResetAll").hidden = !(pgRole() === "admin" && calS.mode === "employees");
+  $("calResetEmp").hidden = !(pgRole() === "admin" && calS.mode === "employees");
   $("calDdList").hidden = true; $("calDd").setAttribute("aria-expanded", "false"); $("calDd").classList.remove("open");
   $("calTitle").textContent = "Calendar";
-  $("calSub").textContent = calS.mode === "employees" ? "Set the Home Calendar and see each employee's calendar." : "Stay updated with your schedule and company events.";
+  $("calSub").textContent = calS.mode === "employees" ? (calTL() ? "See the calendar of each member of your group." : "Set the Home Calendar and see each employee's calendar.") : "Stay updated with your schedule and company events.";
   calS.data = null; calS.byDate = {};
+  const kept = !(calTL() && calS.mode === "employees" && !calS.target) ? swrPeek("calGet", { target: calS.mode === "employees" ? (calS.target || "me") : "me" }) : null;
+  if (kept) { calS.data = kept; calIndex(); }
   calRenderAll();
   calLoad();
 }
 async function calLoad() {
-  const target = calS.mode === "employees" ? calS.target : "me";
+  const target = calS.mode === "employees" ? (calS.target || "me") : "me";
   try {
     const d = await api("calGet", { target });
-    if ((calS.mode === "employees" ? calS.target : "me") !== target) return;       // changed while loading
+    if ((calS.mode === "employees" ? (calS.target || "me") : "me") !== target) return;       // changed while loading
+    if (calTL() && calS.mode === "employees" && !calS.target) {          // a TL starts on their first member
+      if ((d.people || []).length) { calS.target = d.people[0].username; return calLoad(); }
+      d.editable = false; d.targetName = "no members yet";
+    }
     calS.data = d;
     calIndex();
     calRenderAll();
@@ -3312,7 +3487,7 @@ async function calQuickMark(ymd) {            // legend armed: tap a day to mark
 
 /* wiring */
 $("snReview").addEventListener("click", () => {
-  if (calStaff()) showView("calChoose"); else { calS.want = "me"; showView("calendar"); }
+  if (calStaff() || calTL()) showView("calChoose"); else { calS.want = "me"; showView("calendar"); }
 });
 $("ccPersonal").addEventListener("click", () => { calS.want = "me"; showView("calendar"); });
 $("ccEmployees").addEventListener("click", () => { calS.want = "employees"; showView("calendar"); });
@@ -3349,11 +3524,475 @@ $("calDd").addEventListener("click", () => { const open = $("calDdList").hidden;
 $("calEmpFind").addEventListener("input", calRenderSide);
 $("calEmpList").addEventListener("click", (e) => { const b = e.target.closest(".cal-emp-i"); if (!b) return; calS.target = b.dataset.u; calS.data = null; calS.byDate = {}; calRenderAll(); calLoad(); });
 armConfirm($("calResetMe"), "Reset my calendar", "Sure? Clears all my marks & events", async () => {
-  try { await api("calReset", { target: "me" }); await calLoad(); pgToast("Calendar reset"); } catch (e) { pgToast("Couldn't reset"); }
+  try { await api("calReset", { target: "me" }); if (calS.data) await calLoad(); pgToast("Your calendar was reset"); } catch (e) { pgToast("Couldn't reset"); }
 });
 armConfirm($("calResetEmp"), "Reset this calendar", "Sure? Clears everything on it", async () => {
   try { await api("calReset", { target: calS.target }); await calLoad(); pgToast("Calendar reset"); } catch (e) { pgToast("Couldn't reset"); }
 });
 armConfirm($("calResetAll"), "Reset all employees", "Sure? Clears every employee's marks", async () => {
-  try { await api("calReset", { target: "employees" }); await calLoad(); pgToast("Employees' calendars reset"); } catch (e) { pgToast("Couldn't reset"); }
+  try { await api("calReset", { target: "employees" }); if (calS.data) await calLoad(); pgToast("Employees' calendars reset"); } catch (e) { pgToast("Couldn't reset"); }
 });
+
+
+/* =====================================================
+   WORK ENVIRONMENT ASSESSMENT
+   Employees / TLs answer it (locked until HR opens it). HR / Admin write the questions and read the results.
+   ===================================================== */
+const WEA_LEVELS = { "Strongly Agree": "#15803D", "Agree": "#84CC16", "Disagree": "#F59E0B", "Strongly Disagree": "#DC2626" };       // dark green, light green, orange, red: the colour follows the score range
+const WEA_PALETTE = ["#e8714f", "#5b8def", "#2fa37a", "#c35bd8", "#e6b422", "#3fb6c9", "#d9547c", "#7a6bd8", "#8a9a2b", "#9b6b4a"];     // one colour per category, never repeated
+const weaS = { d: null, ans: {}, idx: 0, busy: false };
+const weaWhen = (ms) => new Date(ms).toLocaleString([], { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+
+/* ----- the card on Mantra Sense shows the state ----- */
+async function weaCardRefresh() {
+  const t = $("snWeaT");
+  if (!t || !currentUser) return;
+  if (isStaff()) { t.textContent = "Manage Assessment"; return; }
+  try {
+    const d = await api("weaGet");
+    t.textContent = d.status === "open" ? (d.done ? "View Summary" : "Take Assessment") : d.done ? "View Summary" : "Locked";
+  } catch (e) { /* keep the old label */ }
+}
+$("snWea").addEventListener("click", () => { if (isStaff()) showView("weaChoose"); else showView("wea"); });
+$("wcBuild").addEventListener("click", () => showView("weaBuild"));
+$("wcResults").addEventListener("click", () => showView("weaResults"));
+
+/* ----- employee / TL ----- */
+function weaShow(which) { ["weaLocked", "weaTake", "weaDone"].forEach((id) => { $(id).hidden = id !== which; }); }
+async function weaEnter() {
+  weaShow("");
+  if (weaS.q) { try { await weaS.q; } catch (e) {} }                           // let the last background save finish first
+  weaS.fail = null;
+  try { weaS.d = await api("weaGet"); } catch (e) { weaLock("Couldn't load the assessment.", "Please try again in a moment."); return; }
+  weaRender();
+}
+function weaLock(t, s) { $("weaLockT").textContent = t; $("weaLockS").textContent = s; weaShow("weaLocked"); }
+function weaRender() {
+  const d = weaS.d;
+  if (!d) return;
+  if (d.done && d.summary) return weaSummary(d.summary, $("weaSumRows"), $("weaSumNote"), weaShow);
+  if (d.status === "open") {
+    weaS.ans = {};
+    d.cats.forEach((c) => { const a = (d.answers && d.answers[c.id]) || []; weaS.ans[c.id] = c.qs.map((_, i) => a[i] || 0); });
+    const first = d.cats.findIndex((c) => weaS.ans[c.id].some((v) => !v));
+    weaS.idx = first < 0 ? 0 : first;
+    weaShow("weaTake");
+    return weaPage();
+  }
+  if (d.status === "scheduled") return weaLock("The assessment is locked.", "It opens on " + weaWhen(d.openAt) + ". You will get a notification.");
+  if (d.status === "closed") return weaLock("The assessment is closed.", "Thank you. HR will share what comes out of it.");
+  weaLock("The assessment is locked.", "HR will open it when it is time. You will get a notification.");
+}
+function weaCounts() {                       // progress counts categories (sections) that are fully answered, not single questions
+  const cats = weaS.d.cats;
+  const done = cats.filter((c) => weaS.ans[c.id].every((v) => v)).length;
+  return { n: cats.length, done };
+}
+function weaProgress() {
+  const { n, done } = weaCounts();
+  $("weaBarFill").style.width = (n ? (done / n) * 100 : 0) + "%";
+  $("weaCount").textContent = done + " of " + n + (n === 1 ? " category" : " categories");
+}
+function weaPage() {
+  const cats = weaS.d.cats, c = cats[weaS.idx];
+  $("weaCatName").textContent = c.name;
+  $("weaCatStep").textContent = "Section " + (weaS.idx + 1) + " of " + cats.length;
+  const ol = $("weaQs");
+  ol.textContent = "";
+  c.qs.forEach((q, i) => {
+    const li = document.createElement("li");
+    const t = document.createElement("span");
+    t.className = "wea-q"; t.textContent = q;
+    const pills = document.createElement("div");
+    pills.className = "wea-pills"; pills.setAttribute("role", "radiogroup"); pills.setAttribute("aria-label", q);
+    [4, 3, 2, 1].forEach((v) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = v; b.dataset.v = v; b.setAttribute("role", "radio");
+      const on = weaS.ans[c.id][i] === v;
+      b.className = on ? "on" : ""; b.setAttribute("aria-checked", String(on));
+      b.addEventListener("click", () => {
+        weaS.ans[c.id][i] = v;
+        pills.querySelectorAll("button").forEach((x) => { const o = x === b; x.classList.toggle("on", o); x.setAttribute("aria-checked", String(o)); });
+        li.classList.remove("miss");
+        weaProgress();
+      });
+      pills.appendChild(b);
+    });
+    li.append(t, pills);
+    ol.appendChild(li);
+  });
+  $("weaPrev").hidden = weaS.idx === 0;
+  $("weaNext").innerHTML = (weaS.idx === cats.length - 1 ? "Finish" : "Next Section") + " <b>&rarr;</b>";
+  weaProgress();
+  $("wea").scrollTop = 0;
+}
+$("weaPrev").addEventListener("click", () => { if (weaS.idx > 0) { weaS.idx--; weaPage(); } });
+$("weaNext").addEventListener("click", async () => {
+  if (weaS.busy) return;
+  const cats = weaS.d.cats, c = cats[weaS.idx];
+  const missing = weaS.ans[c.id].map((v, i) => (v ? -1 : i)).filter((i) => i >= 0);
+  if (missing.length) {
+    $("weaQs").querySelectorAll("li").forEach((li, i) => li.classList.toggle("miss", missing.includes(i)));
+    pgToast("Please answer every statement in this section");
+    const li = $("weaQs").querySelectorAll("li")[missing[0]]; if (li) li.scrollIntoView({ block: "center", behavior: "smooth" });
+    return;
+  }
+  // each page is saved in the background (in order) so the next page opens at once; the last page waits for all of them
+  const snapIdx = weaS.idx, snapCid = c.id, snapAns = weaS.ans[c.id].slice();
+  weaS.q = (weaS.q || Promise.resolve()).then(() => api("weaSave", { cid: snapCid, answers: snapAns })).catch((e) => { if (!weaS.fail) weaS.fail = { idx: snapIdx, e }; });
+  if (weaS.idx < cats.length - 1) { weaS.idx++; weaPage(); return; }
+  weaS.busy = true;
+  try {
+    await weaS.q;
+    if (weaS.fail) { const f = weaS.fail; weaS.fail = null; weaS.idx = f.idx; weaPage(); throw f.e; }
+    {
+      const r = await api("weaSubmit");
+      weaS.d.done = true; weaS.d.summary = r.summary;
+      if (r.reward) pgToast("Thank you! You received 2 Fertilizers and 1 Butterfly.");
+      weaSummary(r.summary, $("weaSumRows"), $("weaSumNote"), weaShow);
+    }
+  } catch (e) {
+    pgToast(e.message && e.message.length < 80 ? e.message : "Couldn't save. Please try again.");
+    if (/not open/i.test(e.message || "")) weaEnter();
+  }
+  weaS.busy = false;
+});
+
+/* the bars of a summary (employee) */
+function weaSummary(sum, box, noteEl, showFn) {
+  box.textContent = "";
+  sum.rows.forEach((r, i) => {
+    const row = document.createElement("div");
+    row.className = "wea-row";
+    const col = WEA_LEVELS[r.level] || "#cfc3ba";
+    row.innerHTML = '<div class="wr-top"><span>' + calEsc(r.name) + '</span><b>' + r.avg.toFixed(2) + '</b></div><div class="wr-bar"><i style="background:' + col + '"></i></div><small>' + calEsc(r.level) + '<u style="background:' + col + '"></u></small>';
+    box.appendChild(row);
+    requestAnimationFrame(() => requestAnimationFrame(() => { row.querySelector(".wr-bar i").style.width = (r.avg / 4) * 100 + "%"; }));
+    row.style.animationDelay = i * 0.06 + "s";
+  });
+  noteEl.textContent = sum.note || "";
+  if (showFn) showFn("weaDone");
+}
+
+/* ----- HR / Admin: write the questions ----- */
+const wb = { d: null, cats: [], open: new Set(), dirty: false, openMode: "now", closeMode: "manual" };
+const wbLocked = () => wb.d && wb.d.status !== "draft";
+async function wbEnter() {
+  $("wbAdmin").hidden = currentUser.role !== "admin";
+  try { wb.d = await api("weaGet"); } catch (e) { pgToast("Couldn't load the assessment"); return; }
+  wb.cats = JSON.parse(JSON.stringify(wb.d.cats || []));
+  wb.dirty = false;
+  if (!wb.open.size && wb.cats.length) wb.open.add(wb.cats[0].id);
+  wbRender();
+}
+function wbRender() {
+  const d = wb.d, lock = wbLocked();
+  const st = $("wbStatus");
+  st.textContent = { draft: "Draft", scheduled: "Scheduled", open: "Open", closed: "Closed" }[d.status] || "Draft";
+  st.className = "wb-status s-" + d.status;
+  const bn = $("wbBanner");
+  bn.hidden = !lock;
+  if (lock) {
+    const t = d.totals || { done: 0, total: 0 };
+    bn.innerHTML = d.status === "scheduled" ? "<b>Scheduled.</b> It opens on " + weaWhen(d.openAt) + (d.closeAt ? " and closes on " + weaWhen(d.closeAt) : "") + ". The questions are locked."
+      : d.status === "open" ? "<b>Open now.</b> " + t.done + " of " + t.total + " have finished" + (d.closeAt ? ". It closes on " + weaWhen(d.closeAt) : "") + ". The questions are locked."
+      : "<b>Closed.</b> " + t.done + " of " + t.total + " finished it. Clear the results to edit the questions or start a new round.";
+  }
+  $("wbEdit").hidden = lock;
+  $("wbPub").hidden = lock;
+  $("wbLive").hidden = !lock;
+  $("wbClose").hidden = d.status === "closed";
+  $("wbClose").textContent = d.status === "scheduled" ? "Cancel schedule" : "Close now";
+  $("wbClose").dataset.label = $("wbClose").textContent;
+  $("wbClear").hidden = d.status !== "closed";
+  $("wbLimit").textContent = wb.cats.length + " of " + d.max.cats + " categories";
+  $("wbAdd").disabled = wb.cats.length >= d.max.cats;
+  const box = $("wbCats");
+  box.textContent = "";
+  if (!wb.cats.length) {
+    const p = document.createElement("p");
+    p.className = "wb-empty";
+    p.textContent = lock ? "There are no questions." : "No categories yet. Add one, for example Role Clarity or Supervisor Support.";
+    box.appendChild(p);
+  }
+  wb.cats.forEach((c, ci) => {
+    const open = wb.open.has(c.id);
+    const card = document.createElement("div");
+    card.className = "wb-cat" + (open ? " open" : "");
+    card.style.animationDelay = ci * 0.04 + "s";
+    const head = document.createElement("div");
+    head.className = "wb-ch";
+    head.tabIndex = 0; head.setAttribute("role", "button"); head.setAttribute("aria-expanded", String(open));
+    head.innerHTML = '<span class="wb-num">' + (ci + 1) + '</span><span class="wb-cn">' + calEsc(c.name || "Untitled category") + '</span><small>' + c.qs.length + (c.qs.length === 1 ? " question" : " questions") + '</small>' +
+      (lock ? "" : '<button type="button" class="wb-rm" aria-label="Remove category" title="Remove category">&times;</button>') +
+      '<span class="wb-chev"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+    const toggle = () => { if (wb.open.has(c.id)) wb.open.delete(c.id); else wb.open.add(c.id); wbRender(); };
+    head.addEventListener("click", (e) => {
+      if (e.target.closest(".wb-rm")) { wbRemoveCat(ci, e.target.closest(".wb-rm")); return; }
+      toggle();
+    });
+    head.addEventListener("keydown", (e) => { if (e.target === head && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); toggle(); } });
+    card.appendChild(head);
+    if (open) {
+      const body = document.createElement("div");
+      body.className = "wb-body";
+      if (lock) {
+        const ol = document.createElement("ol");
+        ol.className = "wb-view";
+        c.qs.forEach((q) => { const li = document.createElement("li"); li.textContent = q; ol.appendChild(li); });
+        body.appendChild(ol);
+      } else {
+        const nm = document.createElement("input");
+        nm.type = "text"; nm.maxLength = 60; nm.value = c.name; nm.placeholder = "Category name, e.g. Role Clarity"; nm.className = "wb-in"; nm.setAttribute("aria-label", "Category name");
+        nm.addEventListener("input", () => { c.name = nm.value; wb.dirty = true; head.querySelector(".wb-cn").textContent = nm.value.trim() || "Untitled category"; });
+        body.appendChild(nm);
+        const list = document.createElement("div");
+        list.className = "wb-ql";
+        c.qs.forEach((q, qi) => {
+          const row = document.createElement("div");
+          row.className = "wb-q";
+          const n = document.createElement("span"); n.textContent = qi + 1 + ".";
+          const ta = document.createElement("textarea");
+          ta.rows = 1; ta.maxLength = 200; ta.value = q; ta.placeholder = "Write a statement employees can agree or disagree with"; ta.setAttribute("aria-label", "Question " + (qi + 1));
+          const fit = () => { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; };
+          ta.addEventListener("input", () => { c.qs[qi] = ta.value; wb.dirty = true; fit(); });
+          const x = document.createElement("button");
+          x.type = "button"; x.className = "wb-qx"; x.setAttribute("aria-label", "Remove question"); x.innerHTML = "&times;";
+          x.addEventListener("click", () => { c.qs.splice(qi, 1); wb.dirty = true; wbRender(); });
+          row.append(n, ta, x);
+          list.appendChild(row);
+          setTimeout(fit, 0);
+        });
+        body.appendChild(list);
+        const add = document.createElement("button");
+        add.type = "button"; add.className = "wb-addq"; add.textContent = "+ Add question";
+        add.disabled = c.qs.length >= d.max.qs;
+        add.addEventListener("click", () => { c.qs.push(""); wb.dirty = true; wbRender(); const t = $("wbCats").querySelectorAll(".wb-cat.open .wb-q textarea"); });
+        const cnt = document.createElement("small");
+        cnt.textContent = c.qs.length + " of " + d.max.qs + " questions";
+        const foot = document.createElement("div");
+        foot.className = "wb-qf"; foot.append(add, cnt);
+        body.appendChild(foot);
+      }
+      card.appendChild(body);
+    }
+    box.appendChild(card);
+  });
+  $("wbPubNote").textContent = "";
+}
+let wbRemoveTimer = null;
+function wbRemoveCat(ci, btn) {
+  const c = wb.cats[ci];
+  if (!btn.classList.contains("ask") && (c.qs.length || (c.name || "").trim())) {         // the first click asks, the second removes
+    btn.classList.add("ask"); btn.textContent = "Remove?";
+    clearTimeout(wbRemoveTimer); wbRemoveTimer = setTimeout(() => { btn.classList.remove("ask"); btn.innerHTML = "&times;"; }, 3000);
+    return;
+  }
+  wb.cats.splice(ci, 1); wb.dirty = true; wbRender();
+}
+$("wbAdd").addEventListener("click", () => {
+  if (wb.cats.length >= wb.d.max.cats) return;
+  const id = "n" + Date.now().toString(36);
+  wb.cats.push({ id, name: "", qs: [""] });
+  wb.open.add(id); wb.dirty = true; wbRender();
+  const inputs = $("wbCats").querySelectorAll(".wb-in"); if (inputs.length) inputs[inputs.length - 1].focus();
+});
+function wbCleanForSend() {
+  return wb.cats.map((c) => ({ id: /^n[a-z0-9]+$/.test(c.id) && c.id.length > 8 && !wb.d.cats.some((x) => x.id === c.id) ? "" : c.id, name: c.name, qs: c.qs.filter((q) => q.trim()) }));
+}
+async function wbSave(silent) {
+  try {
+    const r = await api("weaDraft", { cats: wbCleanForSend() });
+    wb.cats = r.cats; wb.d.cats = JSON.parse(JSON.stringify(r.cats)); wb.dirty = false;
+    wb.open = new Set([...wb.open].filter((id) => wb.cats.some((c) => c.id === id)));
+    wbRender();
+    if (!silent) pgToast("Questions saved");
+    return true;
+  } catch (e) { pgToast(e.message && e.message.length < 90 ? e.message : "Couldn't save"); return false; }
+}
+$("wbSave").addEventListener("click", () => wbSave(false));
+function wbSeg(id, key, input) {
+  $(id).addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    wb[key] = b.dataset.v;
+    $(id).querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+    $(input).hidden = b.dataset.v !== "date";
+    if (b.dataset.v === "date" && !$(input).value) { const t = new Date(Date.now() + (input === "wbOpenAt" ? 3600e3 : 7 * 86400e3)); t.setMinutes(0, 0, 0); $(input).value = new Date(t - t.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
+  });
+}
+wbSeg("wbOpenSeg", "openMode", "wbOpenAt"); wbSeg("wbCloseSeg", "closeMode", "wbCloseAt");
+$("wbPublish").addEventListener("click", async () => {
+  const btn = $("wbPublish");
+  const openAt = wb.openMode === "date" ? new Date($("wbOpenAt").value).getTime() : 0;
+  const closeAt = wb.closeMode === "date" ? new Date($("wbCloseAt").value).getTime() : 0;
+  if ((wb.openMode === "date" && !openAt) || (wb.closeMode === "date" && !closeAt)) { $("wbPubNote").textContent = "Pick the date and time."; return; }
+  btn.disabled = true;
+  try {
+    wb.d = await api("weaPublish", { mode: wb.openMode === "date" ? "schedule" : "now", openAt, closeAt, cats: wbCleanForSend() });
+    wb.cats = JSON.parse(JSON.stringify(wb.d.cats)); wb.dirty = false;
+    wbRender();
+    pgToast(wb.d.status === "open" ? "Published. Employees have been notified." : "Scheduled");
+  } catch (e) { $("wbPubNote").textContent = e.message && e.message.length < 100 ? e.message : "Couldn't publish."; }
+  btn.disabled = false;
+});
+armConfirm($("wbClose"), "Close now", "Click again to confirm", async () => {
+  try { wb.d = await api("weaClose"); wb.cats = JSON.parse(JSON.stringify(wb.d.cats)); wbRender(); pgToast(wb.d.status === "draft" ? "Schedule cancelled" : "Closed. Employees have been notified."); }
+  catch (e) { pgToast("Couldn't close it"); }
+});
+armConfirm($("wbClear"), "Clear results", "Click again to clear", async () => {
+  try { wb.d = await api("weaClear"); wb.cats = JSON.parse(JSON.stringify(wb.d.cats)); wbRender(); pgToast("Results cleared. You can edit the questions again."); }
+  catch (e) { pgToast("Couldn't clear"); }
+});
+armConfirm($("wbReset"), "Reset everything", "Click again to erase all", async () => {
+  try { wb.d = await api("weaReset"); wb.cats = []; wb.open.clear(); wbRender(); pgToast("Questions and answers erased"); }
+  catch (e) { pgToast("Couldn't reset"); }
+});
+window.addEventListener("beforeunload", (e) => { if (wb.dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+/* ----- HR / Admin: the results ----- */
+async function wrEnter() { const r = $("wrRows"); r.textContent = ""; r.dataset.sig = ""; await wrLoad(); }       // clear the remembered state too, or the bars would not be drawn again
+async function wrLoad() {
+  let r;
+  try { r = await api("weaResults"); } catch (e) { return; }
+  const st = $("wrStatus");
+  st.textContent = { draft: "Not published", scheduled: "Scheduled", open: "Open", closed: "Closed" }[r.status];
+  st.className = "wb-status s-" + r.status;
+  const rows = $("wrRows"), note = $("wrNote");
+  if (!r.rows) {
+    $("wrSub").textContent = r.status === "scheduled" ? "It opens on " + weaWhen(r.openAt) + "." : "Nothing has been published yet.";
+    rows.innerHTML = '<p class="wb-empty">Results appear here once the assessment is open.</p>';
+    rows.dataset.sig = "";
+    note.textContent = ""; $("wrSrc").textContent = "";
+    return;
+  }
+  const t = r.totals;
+  $("wrSub").textContent = t.done + " of " + t.total + " " + (t.total === 1 ? "person has" : "people have") + " finished. Only people who answered every question are counted.";
+  const sig = JSON.stringify(r.rows) + t.done;
+  if (rows.dataset.sig !== sig || !rows.children.length) {
+    rows.dataset.sig = sig;
+    rows.textContent = "";
+    r.rows.forEach((c, i) => {
+      const col = WEA_PALETTE[i % WEA_PALETTE.length];
+      const row = document.createElement("div");
+      row.className = "wea-row";
+      row.style.animationDelay = i * 0.06 + "s";
+      row.innerHTML = '<div class="wr-top"><span>' + calEsc(c.name) + '</span><b>' + (c.avg ? c.avg.toFixed(2) : "–") + '</b></div><div class="wr-bar"><i style="background:' + col + '"></i></div><small>' + (c.level ? calEsc(c.level) : "No answers yet") + '<u style="background:' + col + '"></u></small>';
+      rows.appendChild(row);
+      requestAnimationFrame(() => requestAnimationFrame(() => { row.querySelector(".wr-bar i").style.width = (c.avg / 4) * 100 + "%"; }));
+    });
+  }
+  note.textContent = r.interp ? r.interp.text : "The interpretation appears when the assessment closes.";
+  $("wrSrc").textContent = r.interp && r.interp.source === "gemini" ? "Written with Gemini from the category averages only." : "";
+}
+
+/* the pages stay current while HR / Admin are looking at them */
+setInterval(async () => {
+  if (document.hidden || !currentUser) return;
+  try {
+    if ($("weaResults").classList.contains("active")) await wrLoad();
+    else if ($("weaBuild").classList.contains("active") && !wb.dirty) {
+      const d = await api("weaGet");
+      if (d.status !== wb.d.status || JSON.stringify(d.totals) !== JSON.stringify(wb.d.totals)) { wb.d = d; if (d.status !== "draft" || !wb.cats.length) wb.cats = JSON.parse(JSON.stringify(d.cats || [])); wbRender(); }
+    } else if ($("wea").classList.contains("active") && weaS.d && !$("weaLocked").hidden) {
+      const d = await api("weaGet");
+      if (d.status !== weaS.d.status || d.round !== weaS.d.round) { weaS.d = d; weaRender(); }
+    }
+  } catch (e) { /* try again next time */ }
+}, 6000);
+
+
+/* =====================================================
+   ADMIN: USAGE LOG (Apps Script run time and Gemini calls against their limits)
+   ===================================================== */
+const ulColor = (p) => (p >= 85 ? "#dc2626" : p >= 60 ? "#f59e0b" : "#15803d");
+const ulMin = (ms) => (ms / 60000);
+const ulFmtMin = (ms) => { const m = ulMin(ms); return m < 1 ? Math.round(ms / 1000) + " sec" : m.toFixed(m < 10 ? 1 : 0) + " min"; };
+function ulBar(el, p) { el.style.width = Math.min(100, p) + "%"; el.style.background = ulColor(p); }
+function ulIn(m) { const h = Math.floor(m / 60); return h ? h + " h " + (m % 60) + " min" : m + " min"; }
+async function ulLoad() {
+  let u;
+  try { u = await api("usage"); } catch (e) { $("ulVerdict").innerHTML = "<b>Couldn't load the usage.</b><span>Deploy the newest backend and try Refresh.</span>"; return; }
+  const L = u.limits, T = u.today;
+  // Apps Script
+  const rtP = (ulMin(T.ms) / L.runtimeMin) * 100;
+  $("ulRtVal").textContent = ulFmtMin(T.ms);
+  $("ulRtOf").textContent = "of " + L.runtimeMin + " min allowed today (" + rtP.toFixed(rtP < 10 ? 1 : 0) + "%)";
+  ulBar($("ulRtBar"), rtP);
+  const elapsed = Math.max(60, 24 * 60 - u.minsToReset);                    // minutes since the Pacific midnight reset
+  const proj = (ulMin(T.ms) / elapsed) * 24 * 60 / L.runtimeMin * 100;
+  $("ulRtSay").textContent = rtP >= 85 ? "You are close to today's limit. Google will stop the script until the quota resets."
+    : rtP >= 60 ? "More than half of today's allowance is used. At this pace you would end the day around " + Math.round(proj) + "%."
+    : "Plenty of room. At this pace you would end the day around " + Math.round(proj) + "% of the limit.";
+  $("ulN").textContent = T.n.toLocaleString();
+  $("ulAvg").textContent = T.n ? Math.round(T.ms / T.n) + " ms" : "–";
+  $("ulReset").textContent = ulIn(u.minsToReset);
+  const acts = $("ulActs");
+  acts.textContent = "";
+  const top = u.actions[0] ? u.actions[0].ms || 1 : 1;
+  u.actions.forEach((a) => {
+    const r = document.createElement("div");
+    r.className = "ul-act";
+    r.innerHTML = '<span>' + calEsc(a.action) + '</span><div class="ul-mini"><i style="width:' + Math.max(3, (a.ms / top) * 100) + '%"></i></div><small>' + a.n.toLocaleString() + " req &middot; " + ulFmtMin(a.ms) + "</small>";
+    acts.appendChild(r);
+  });
+  if (!u.actions.length) acts.innerHTML = '<p class="ul-none">No requests counted yet today.</p>';
+  // Gemini
+  const used = T.go + T.gf, gP = (used / L.geminiPerDay) * 100;
+  $("ulGState").textContent = u.geminiOn ? "connected" : "not set up";
+  $("ulGState").className = u.geminiOn ? "on" : "off";
+  $("ulGVal").textContent = used;
+  $("ulGOf").textContent = "of " + L.geminiPerDay + " free requests today (" + gP.toFixed(gP < 10 ? 1 : 0) + "%)";
+  ulBar($("ulGBar"), gP);
+  $("ulGSay").textContent = !u.geminiOn ? "No GEMINI_API_KEY is saved, so the interpretation uses the built-in wording. Nothing is being used."
+    : used === 0 ? "Gemini has not been called today. It is only asked once each time an assessment's results are first opened after it closes."
+    : gP >= 85 ? "You are close to the daily free limit."
+    : "Well within the free limit.";
+  $("ulGMin").textContent = T.gMin + " of " + L.geminiPerMin;
+  $("ulGFail").textContent = T.gf;
+  $("ulGModel").textContent = u.model;
+  const er = $("ulGErr");
+  er.hidden = !T.err;
+  if (T.err) er.textContent = "Last problem: " + T.err + (T.errAt ? " (" + new Date(T.errAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + ")" : "") + ". The built-in wording was used instead.";
+  // history
+  const hist = u.history.concat([{ date: u.day + " (today)", ms: T.ms, n: T.n, g: used }]);
+  const hb = $("ulHist");
+  hb.textContent = "";
+  hist.forEach((x) => {
+    const p = (ulMin(x.ms) / L.runtimeMin) * 100;
+    const col = document.createElement("div");
+    col.className = "ul-col";
+    col.innerHTML = '<span class="ul-v">' + ulMin(x.ms).toFixed(1) + '</span><div class="ul-pillar"><i style="height:' + Math.max(2, Math.min(100, p)) + '%;background:' + ulColor(p) + '"></i></div><small>' + calEsc(String(x.date).slice(5, 10)) + '</small><em>' + x.n.toLocaleString() + ' req' + (x.g ? " &middot; " + x.g + " AI" : "") + '</em>';
+    hb.appendChild(col);
+  });
+  // one sentence on top
+  const worst = Math.max(rtP, gP, proj >= 100 && elapsed > 120 ? 60 : 0), v = $("ulVerdict");       // heading for the limit before the day is over counts as "getting close"
+  v.className = "ul-verdict " + (worst >= 85 ? "bad" : worst >= 60 ? "warn" : "ok");
+  v.innerHTML = worst >= 85 ? "<b>Limit almost reached</b><span>" + (rtP >= gP ? "Apps Script run time" : "Gemini") + " is at " + Math.round(worst) + "% of today's allowance.</span>"
+    : worst >= 60 ? "<b>Getting close</b><span>" + (rtP >= 60 || gP >= 60 ? "Keep an eye on " + (rtP >= gP ? "Apps Script run time" : "Gemini") + " (" + Math.round(Math.max(rtP, gP)) + "%)." : "At this pace Apps Script run time would pass today's limit before midnight Pacific.") + "</span>"
+    : "<b>All good</b><span>You are well inside both limits today.</span>";
+}
+function admTab(which) {
+  $("admCheck").hidden = which !== "check";
+  $("admLog").hidden = which !== "log";
+  $("admReset").hidden = which !== "reset";
+  $("admTabCheck").classList.toggle("on", which === "check");
+  $("admTabLog").classList.toggle("on", which === "log");
+  $("admTabReset").classList.toggle("on", which === "reset");
+  if (which !== "check") { admMsg.textContent = ""; admMsg.className = "adm-msg"; }
+  if (which === "log") ulLoad();
+}
+$("admTabReset").addEventListener("click", () => admTab("reset"));
+$("admTabCheck").addEventListener("click", () => admTab("check"));
+$("admTabLog").addEventListener("click", () => admTab("log"));
+setInterval(() => { if (!document.hidden && $("admin").classList.contains("active") && !$("admLog").hidden) ulLoad(); }, 20000);
+
+
+// Type mantraSpeed() in the browser console (F12). "total" = how long the page waited, "script" = time inside your Apps Script,
+// "google" = the rest (waking the script up and Google's own routing). Big "google" = Google's delay; big "script" = the sheets.
+window.mantraSpeed = function () {
+  const rows = window.__speed || [], by = {};
+  rows.forEach((r) => { const o = by[r.action] || (by[r.action] = { action: r.action, calls: 0, total: 0, script: 0, google: 0, slowest: 0 }); o.calls++; o.total += r.total; o.script += r.script; o.google += r.google; o.slowest = Math.max(o.slowest, r.total); });
+  const out = Object.values(by).map((o) => ({ action: o.action, calls: o.calls, "avg total ms": Math.round(o.total / o.calls), "avg script ms": Math.round(o.script / o.calls), "avg google ms": Math.round(o.google / o.calls), "slowest ms": o.slowest })).sort((a, b) => b["avg total ms"] - a["avg total ms"]);
+  console.table(out);
+  return out;
+};
