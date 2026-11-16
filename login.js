@@ -605,7 +605,7 @@ async function api(action, payload = {}) {
   else if (!READ_ONLY_CALLS.has(action)) SWR.clear();
   return data;
 }
-const BACKEND_VERSION = 35;
+const BACKEND_VERSION = 36;
 // Lists the website has already fetched are kept for a short while, so opening a page shows them straight away
 // while the fresh copy loads in the background. Anything that writes clears them, so nothing old can show after a change.
 // right after login the site asks for several things; they come in one request and are handed out as each is asked for
