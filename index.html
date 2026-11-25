@@ -209,6 +209,8 @@ body.logged-in .login-bg { display: none; }                 /* gone once the das
   opacity: 1;
   pointer-events: auto;
 }
+/* before login the invisible dashboard must never catch a tap (on phones the Home text sat over the Username box) */
+#dashboard:not(.show), #dashboard:not(.show) * { pointer-events: none !important; }
 
 /* The top 115px of background.png is blank on purpose (room for the nav bar).
    The picture is moved up so its hero starts exactly under the nav bar. */
@@ -7882,6 +7884,7 @@ function gdRender(d, quiet) {
   const lv = d.level;
   gdStagesReady();
   gdSignSet(d.name);
+  gdSignPlace();
   document.querySelectorAll(".gd-stage").forEach((s) => s.classList.toggle("on", Number(s.dataset.l) === lv && (!s.dataset.t || s.dataset.t === gdTree)));
   document.querySelectorAll("#gdStyle button").forEach((b) => b.classList.toggle("on", b.dataset.t === gdTree));
   // the plant grows (and shrinks) a little with every XP, not only at level changes
@@ -8009,6 +8012,19 @@ function gdSignSet(name) {
   t.removeAttribute("textLength"); t.removeAttribute("lengthAdjust");
   try { if (t.getComputedTextLength() > 176) { t.setAttribute("textLength", "176"); t.setAttribute("lengthAdjust", "spacingAndGlyphs"); } } catch (e) {}   // long names are squeezed to fit the board
 }
+// On narrow screens (phones, tablets held upright) the garden picture is cropped to its middle, and the sign's usual spot
+// (right side) falls off the screen. Then the sign moves inside the visible part, a little smaller, in front of the mound.
+function gdSignPlace() {
+  const sign = $("gdSign");
+  if (!sign || !$("garden").clientWidth) return;
+  const m = gdScale();
+  const right = (m.W - m.ox) / m.s;                        // right edge of what's visible, in picture units (the picture is 1600 wide)
+  if (right >= 1300) { sign.setAttribute("transform", "translate(1180 800)"); return; }
+  const k = right < 1100 ? 0.75 : 0.9;
+  const x = Math.round(Math.min(1180, right - 100 * k - 14));
+  sign.setAttribute("transform", "translate(" + x + " " + (right < 1100 ? 865 : 820) + ") scale(" + k + ")");
+}
+addEventListener("resize", () => { if ($("garden").classList.contains("active")) gdSignPlace(); });
 function gdNameOpen() {
   const inp = $("gdNameIn");
   inp.value = (gd && gd.name) || "";
