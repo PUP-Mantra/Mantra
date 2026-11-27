@@ -1,8 +1,0 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "io.github.pup_mantra.twa",
-        "sha256_cert_fingerprints": ["36:D0:E8:77:7D:68:39:63:05:24:EF:6C:09:FE:72:E1:53:AA:D2:E4:3B:46:1F:6E:0B:8F:AB:AA:91:8A:A9:7C"]
-      }
-    }]
