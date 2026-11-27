@@ -1,0 +1,17 @@
+{
+  "name": "Mantra",
+  "short_name": "Mantra",
+  "description": "Mantra: employee well-being check-ins, assessments, programs and a garden that grows with you.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#FBF2E8",
+  "theme_color": "#FBF2E8",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
