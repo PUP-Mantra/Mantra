@@ -726,6 +726,10 @@ body.logged-in .login-bg { display: none; }                 /* gone once the das
   .lf-box { width: 18px; height: 18px; border-radius: 5px; }
   .lf-box::after { border-width: 0 2.5px 2.5px 0; }
 }
+/* phones held upright: the login card (and the lotus behind it) sit a bit higher, above the pond and clear of the keyboard */
+@media (max-width: 820px) and (orientation: portrait) {
+  .logo, .login-card { margin-bottom: 20vh; }
+}
 
 /* ---------- Dashboard on phones / small tablets (portrait) ---------- */
 @media (max-width: 820px) {
